@@ -171,8 +171,8 @@ CREATE POLICY "authenticated_all" ON custom_maintenance_fields
 
 1. **Project Settings → API** (menu laterale in basso).
 2. Copia e salva:
-   - **Project URL** → questo sarà il valore di `SUPABASE_URL`
-   - **anon public** key → questo sarà il valore di `SUPABASE_ANON_KEY`
+   - **Project URL** → questo sarà il valore di `SUPABASE_URL` --> https://hvvfzvitygxyveiosumk.supabase.co
+   - **anon public** key → questo sarà il valore di `SUPABASE_ANON_KEY` --> sb_publishable_SutfYdlbIjrUi328lqcz0Q_98l0uJrg
 
 > ℹ️ La `anon key` non è un segreto da nascondere: finisce nel bundle scaricabile dal browser
 > per design. La sicurezza è garantita dalla RLS + login obbligatorio + signup disabilitato.
@@ -181,8 +181,8 @@ CREATE POLICY "authenticated_all" ON custom_maintenance_fields
 **Da questo momento puoi avviare l'app con:**
 ```bash
 flutter run -d chrome \
-  --dart-define=SUPABASE_URL=https://<IL-TUO-PROGETTO>.supabase.co \
-  --dart-define=SUPABASE_ANON_KEY=<LA-TUA-ANON-KEY>
+  --dart-define=SUPABASE_URL=https://hvvfzvitygxyveiosumk.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=sb_publishable_SutfYdlbIjrUi328lqcz0Q_98l0uJrg
 ```
 
 ---
@@ -191,8 +191,8 @@ flutter run -d chrome \
 
 Dopo aver avviato l'app almeno una volta, apri un terminale e prova:
 ```bash
-curl "https://<PROGETTO>.supabase.co/rest/v1/vehicles" \
-  -H "apikey: <ANON_KEY>"
+curl "https://hvvfzvitygxyveiosumk.supabase.co/rest/v1/vehicles" \
+  -H "apikey: sb_publishable_SutfYdlbIjrUi328lqcz0Q_98l0uJrg"
 ```
 Il risultato deve essere `[]` (array vuoto) o un errore di permesso, **mai** una lista di dati.
 Se vedi dati: la RLS non è attiva, torna in §A.2 e verifica.
