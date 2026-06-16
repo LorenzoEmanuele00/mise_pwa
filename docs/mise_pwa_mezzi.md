@@ -1,8 +1,8 @@
 # Vehicle Management App — Documento di Progetto
 
-> **Stato documento:** 🟢 Pronto per sviluppo
+> **Stato documento:** 🟢 In sviluppo attivo
 > **Ultima modifica:** 2026-06-16
-> **Versione:** 0.5.0
+> **Versione:** 0.6.0
 > **Package Flutter:** `mise_pwa` (progetto già scaffoldato)
 
 ---
@@ -145,35 +145,45 @@ Ogni mezzo mantiene una cronologia di schede. È possibile:
 - **Modificare** una scheda esistente
 - **Visualizzare** lo storico in ordine cronologico inverso
 
-#### Campi della Scheda (predefiniti)
+#### Campi della Scheda — struttura
 
-Tutti i campi dropdown supportano il valore **"Altro…"** che apre un campo testo libero inline. Il valore libero viene salvato nella stessa colonna `TEXT` del campo.
+I campi di stato sono **interamente a database** (tabella `maintenance_fields`): si possono aggiungere, disabilitare o riassegnare per tipo di mezzo senza toccare il codice. I valori vengono salvati nel JSONB `maintenance_records.custom_fields`.
 
-| Campo | Tipo | Valori Predefiniti |
-|---|---|---|
-| `data` | Date picker | — |
-| `km` | Numero intero | — |
-| `tagliando` | Dropdown | Effettuato · Da fare · Non applicabile · Altro… |
-| `revisione` | Dropdown | Effettuata · In scadenza · Scaduta · Non applicabile · Altro… |
-| `luci` | Dropdown | OK · Da verificare · Sostituire · Altro… |
-| `lampeggianti` | Dropdown | OK · Da verificare · Sostituire · Non applicabile · Altro… |
-| `sirene` | Dropdown | OK · Da verificare · Sostituire · Non applicabile · Altro… |
-| `spazzole` | Dropdown | OK · Da sostituire · Altro… |
-| `distribuzione` | Dropdown | OK · In scadenza · Da sostituire · Non applicabile · Altro… |
-| `inverter` | Dropdown | OK · Da verificare · Guasto · Non applicabile · Altro… |
-| `batteria_servizi` | Dropdown | OK · Carica bassa · Da sostituire · Non applicabile · Altro… |
-| `ruote` | Dropdown | OK · Usura normale · Da cambiare · Altro… |
-| `assicurazione` | Dropdown | In regola · In scadenza (30 gg) · Scaduta · Altro… |
-| `note` | Testo libero multiriga | — |
+Campi strutturali fissi (sempre presenti):
 
-#### Campi Personalizzati (da Impostazioni)
+| Campo | Tipo |
+|---|---|
+| `data` | Date picker (obbligatorio) |
+| `km` | Numero intero |
+| `note` | Testo libero multiriga |
 
-Dal pannello **Impostazioni → Campi Manutenzione**:
+Campi di stato predefiniti a database (tutti dropdown + opzione **"Altro…"** → testo libero):
 
-- Aggiungere nuovi campi con nome, tipo (dropdown / testo / numero) e valori predefiniti
-- I campi personalizzati sono condivisi — visibili su tutti i dispositivi (tabella `custom_maintenance_fields`)
-- I valori dei campi custom in una scheda sono salvati nel JSONB `maintenance_records.custom_fields`
-- I nuovi campi appaiono in fondo alla scheda manutenzione (ordinati per `sort_order`)
+| field_key | Label | Valori | Tipo mezzo |
+|---|---|---|---|
+| `tagliando` | Tagliando | Effettuato · Da fare · Non applicabile | tutti |
+| `revisione` | Revisione | Effettuata · In scadenza · Scaduta · Non applicabile | tutti |
+| `assicurazione` | Assicurazione | In regola · In scadenza (30 gg) · Scaduta | tutti |
+| `luci` | Luci | OK · Da verificare · Sostituire | tutti |
+| `lampeggianti` | Lampeggianti | OK · Da verificare · Sostituire · Non applicabile | tutti |
+| `sirene` | Sirene | OK · Da verificare · Sostituire · Non applicabile | tutti |
+| `spazzole` | Spazzole | OK · Da sostituire | tutti |
+| `ruote` | Ruote | OK · Usura normale · Da cambiare | tutti |
+| `distribuzione` | Distribuzione | OK · In scadenza · Da sostituire · Non applicabile | tutti |
+| `inverter` | Inverter | OK · Da verificare · Guasto · Non applicabile | tutti |
+| `batteria_servizi` | Batteria servizi | OK · Carica bassa · Da sostituire · Non applicabile | tutti |
+
+#### Data di scadenza (`tracks_expiry`)
+
+I campi con `tracks_expiry = TRUE` (attualmente: `revisione`, `assicurazione`, `distribuzione`) mostrano nel form un date-picker aggiuntivo **"Da effettuare entro"**. La data viene salvata in `custom_fields` con chiave `{field_key}_scadenza`. Nello storico del mezzo la data appare accanto al valore nel chip di stato.
+
+#### Gestione campi (Fase 5 — in attesa)
+
+Fino all'implementazione della UI Impostazioni, i campi si gestiscono dalla **dashboard Supabase SQL Editor** (vedi `docs/SETUP_MANUALE.md §A.2c`):
+- Aggiungere campi: `INSERT INTO maintenance_fields ...`
+- Disabilitare senza perdere dati: `active = FALSE`
+- Limitare a un tipo di mezzo: `type_id = <uuid>`
+- Attivare/disattivare data scadenza: `tracks_expiry = TRUE/FALSE`
 
 ---
 
@@ -245,118 +255,37 @@ lib/
     └── supabase_service.dart
 ```
 
-### Modello Dati (Supabase / PostgreSQL) — schema corretto
+### Modello Dati (Supabase / PostgreSQL) — schema corrente
 
-```sql
--- ============================================================
--- 1. TIPOLOGIE MEZZO
--- ============================================================
-CREATE TABLE vehicle_types (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  code       TEXT UNIQUE NOT NULL,
-  label      TEXT NOT NULL,
-  is_custom  BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+> Lo schema completo con seed e SQL di migrazione è in `docs/SETUP_MANUALE.md §A.2`.
 
-INSERT INTO vehicle_types (code, label) VALUES
-  ('ambulance',        'Ambulanza'),
-  ('equipped_vehicle', 'Mezzo attrezzato'),
-  ('car',              'Autovettura');
+**Quattro tabelle:**
 
--- ============================================================
--- 2. MEZZI  (FK con ON DELETE RESTRICT: non si cancella una
---    tipologia ancora usata da un mezzo)
--- ============================================================
-CREATE TABLE vehicles (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  plate      TEXT NOT NULL UNIQUE,
-  alias      TEXT,
-  type_id    UUID REFERENCES vehicle_types(id) ON DELETE RESTRICT,
-  year       INTEGER,
-  notes      TEXT,
-  photo_url  TEXT,                       -- popolata solo post-MVP (Storage)
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+| Tabella | Scopo |
+|---|---|
+| `vehicle_types` | Tipologie mezzo (codice, label, abbreviazione badge) |
+| `vehicles` | Anagrafica mezzi (targa, alias, tipo FK, anno, note, photo_url) |
+| `maintenance_records` | Schede manutenzione (date, km, notes, custom_fields JSONB) |
+| `maintenance_fields` | Definizione campi di stato (data-driven) |
 
--- ============================================================
--- 3. SCHEDE DI MANUTENZIONE
--- ============================================================
-CREATE TABLE maintenance_records (
-  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  vehicle_id       UUID NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
-  date             DATE NOT NULL,
-  km               INTEGER,
-  tagliando        TEXT,
-  revisione        TEXT,
-  luci             TEXT,
-  lampeggianti     TEXT,
-  sirene           TEXT,
-  spazzole         TEXT,
-  distribuzione    TEXT,
-  inverter         TEXT,
-  batteria_servizi TEXT,
-  ruote            TEXT,
-  assicurazione    TEXT,
-  notes            TEXT,
-  custom_fields    JSONB DEFAULT '{}',
-  created_at       TIMESTAMPTZ DEFAULT NOW(),
-  updated_at       TIMESTAMPTZ DEFAULT NOW()
-);
+**`maintenance_fields` — colonne chiave:**
 
-CREATE INDEX idx_maintenance_vehicle ON maintenance_records (vehicle_id, date DESC);
+| Colonna | Tipo | Descrizione |
+|---|---|---|
+| `field_key` | TEXT UNIQUE | Chiave nel JSONB `custom_fields` |
+| `label` | TEXT | Etichetta mostrata nel form |
+| `field_type` | TEXT | `dropdown` / `text` / `number` |
+| `options` | JSONB | Array di stringhe (per dropdown) |
+| `type_id` | UUID FK | NULL = globale; valorizzato = solo per quel tipo |
+| `sort_order` | INTEGER | Ordine nel form |
+| `active` | BOOLEAN | FALSE = nascosto senza perdere dati |
+| `tracks_expiry` | BOOLEAN | TRUE = mostra date-picker "scadenza" aggiuntivo |
 
--- ============================================================
--- 4. CAMPI PERSONALIZZATI (condivisi)
--- ============================================================
-CREATE TABLE custom_maintenance_fields (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  field_key  TEXT NOT NULL UNIQUE,
-  label      TEXT NOT NULL,
-  field_type TEXT NOT NULL CHECK (field_type IN ('dropdown', 'text', 'number')),
-  options    JSONB,
-  sort_order INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+**Storage dei valori nel JSONB:**
+- Valore campo: `custom_fields[field_key]` (stringa)
+- Data scadenza: `custom_fields[field_key + '_scadenza']` (stringa ISO `YYYY-MM-DD`)
 
--- ============================================================
--- 5. TRIGGER updated_at  (le colonne non si aggiornano da sole)
--- ============================================================
-CREATE OR REPLACE FUNCTION set_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_vehicles_updated_at
-  BEFORE UPDATE ON vehicles
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TRIGGER trg_maintenance_updated_at
-  BEFORE UPDATE ON maintenance_records
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
--- ============================================================
--- 6. ROW LEVEL SECURITY  (abilitata + policy complete)
---    USING (lettura/cancellazione) + WITH CHECK (insert/update)
--- ============================================================
-ALTER TABLE vehicle_types             ENABLE ROW LEVEL SECURITY;
-ALTER TABLE vehicles                  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE maintenance_records       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE custom_maintenance_fields ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "authenticated_all" ON vehicle_types
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "authenticated_all" ON vehicles
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "authenticated_all" ON maintenance_records
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "authenticated_all" ON custom_maintenance_fields
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
-```
+**RLS:** policy `authenticated_all` (`TO authenticated USING (true) WITH CHECK (true)`) su tutte le tabelle. Registrazione pubblica disabilitata — solo chi ha le credenziali condivise può autenticarsi.
 
 ### Configurazione PWA (`web/manifest.json`)
 
@@ -419,16 +348,17 @@ await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
 - [x] Form creazione/modifica mezzo
 - [x] Eliminazione mezzo con conferma
 
-### Fase 4 — Schede Manutenzione
-- [ ] Repository Supabase per `maintenance_records`
-- [ ] Schermata lista manutenzioni per mezzo
-- [ ] Form manutenzione con dropdown + "Altro…"
-- [ ] Creazione / modifica / eliminazione scheda
+### Fase 4 — Schede Manutenzione ✅
+- [x] Repository Supabase per `maintenance_records` (`MaintenanceRepository`)
+- [x] Repository per definizioni campi (`MaintenanceFieldRepository`)
+- [x] Schede visibili nello storico del dettaglio mezzo (chip colorati per valori critici)
+- [x] Form manutenzione data-driven: dropdown + "Altro…" + date-picker scadenza
+- [x] Creazione / modifica / eliminazione scheda
+- [x] Campi a DB (`maintenance_fields`): scoped per tipo mezzo, attivabili/disabilitabili, con data scadenza opzionale (`tracks_expiry`)
 
 ### Fase 5 — Impostazioni e Campi Custom
 - [ ] Schermata impostazioni
-- [ ] CRUD campi personalizzati (`custom_maintenance_fields`)
-- [ ] Integrazione campi custom nel form (lettura/scrittura su `custom_fields` JSONB)
+- [ ] CRUD `maintenance_fields` in-app (oggi gestiti da dashboard Supabase — vedi `SETUP_MANUALE.md §A.2c`)
 - [ ] Gestione tipologie mezzo custom
 
 ### Fase 6 — PWA e Layout Adattivo (parziale)
@@ -684,6 +614,14 @@ riverpod_generator
 ### 2026-06-15 — Sessione 3 (v0.3.0)
 - Autenticazione ripristinata come account condiviso unico; RLS per utenti autenticati;
   modello di distribuzione (l'URL è l'app); aggiunta Fase 2 (auth)
+
+### 2026-06-16 — Sessione 6 (v0.6.0) — Fase 4 completata + data scadenza
+
+- **Fase 4 completata**: `MaintenanceRepository`, `MaintenanceFieldRepository`, `MaintenanceFormScreen` (new + edit + delete), storico nel dettaglio mezzo con chip colorati data-driven
+- **Campi manutenzione interamente a DB** (`maintenance_fields`): dropdown + "Altro…", scopati per tipo mezzo, attivabili/disabilitabili senza toccare il codice
+- **Data di scadenza** (`tracks_expiry`): i campi con flag mostrano date-picker "Da effettuare entro"; data salvata in `custom_fields[field_key + '_scadenza']`; attivo di default per revisione, assicurazione, distribuzione
+- **Fix datepicker**: rimosso `locale: const Locale('it')` da `showDatePicker` (richiederebbe `flutter_localizations`); la locale del browser viene usata automaticamente
+- Aggiornati `CLAUDE.md`, `SETUP_MANUALE.md` (§A.2, §A.2b, §A.2c), questo documento
 
 ### 2026-06-16 — Sessione 5 (v0.5.0) — Avanzamento implementazione
 - Aggiornata roadmap §8 con stato effettivo del codice (Fasi 1–3 completate)

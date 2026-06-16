@@ -1,19 +1,11 @@
+/// Colonne strutturali di maintenance_records.
+/// I campi di stato (tagliando, revisione, ecc.) sono stati migrati a
+/// custom_fields (JSONB) e sono ora pilotati dalla tabella maintenance_fields.
 class MaintenanceRecord {
   final String id;
   final String vehicleId;
   final DateTime date;
   final int? km;
-  final String? tagliando;
-  final String? revisione;
-  final String? luci;
-  final String? lampeggianti;
-  final String? sirene;
-  final String? spazzole;
-  final String? distribuzione;
-  final String? inverter;
-  final String? batteriaServizi;
-  final String? ruote;
-  final String? assicurazione;
   final String? notes;
   final Map<String, dynamic> customFields;
   final DateTime createdAt;
@@ -24,17 +16,6 @@ class MaintenanceRecord {
     required this.vehicleId,
     required this.date,
     this.km,
-    this.tagliando,
-    this.revisione,
-    this.luci,
-    this.lampeggianti,
-    this.sirene,
-    this.spazzole,
-    this.distribuzione,
-    this.inverter,
-    this.batteriaServizi,
-    this.ruote,
-    this.assicurazione,
     this.notes,
     required this.customFields,
     required this.createdAt,
@@ -47,40 +28,31 @@ class MaintenanceRecord {
         vehicleId: json['vehicle_id'] as String,
         date: DateTime.parse(json['date'] as String),
         km: json['km'] as int?,
-        tagliando: json['tagliando'] as String?,
-        revisione: json['revisione'] as String?,
-        luci: json['luci'] as String?,
-        lampeggianti: json['lampeggianti'] as String?,
-        sirene: json['sirene'] as String?,
-        spazzole: json['spazzole'] as String?,
-        distribuzione: json['distribuzione'] as String?,
-        inverter: json['inverter'] as String?,
-        batteriaServizi: json['batteria_servizi'] as String?,
-        ruote: json['ruote'] as String?,
-        assicurazione: json['assicurazione'] as String?,
         notes: json['notes'] as String?,
         customFields:
             (json['custom_fields'] as Map<String, dynamic>?) ?? {},
         createdAt: DateTime.parse(json['created_at'] as String),
         updatedAt: DateTime.parse(json['updated_at'] as String),
       );
+
+  /// Legge il valore di un campo dinamico dal JSONB.
+  String? value(String fieldKey) => customFields[fieldKey] as String?;
+
+  /// Chiave nel JSONB dove viene salvata la data di scadenza di un campo.
+  static String expiryKey(String fieldKey) => '${fieldKey}_scadenza';
+
+  /// Legge la data di scadenza di un campo (null se non impostata).
+  DateTime? expiry(String fieldKey) {
+    final raw = customFields[expiryKey(fieldKey)];
+    if (raw is! String) return null;
+    return DateTime.tryParse(raw);
+  }
 }
 
 class CreateMaintenanceInput {
   final String vehicleId;
   final DateTime date;
   final int? km;
-  final String? tagliando;
-  final String? revisione;
-  final String? luci;
-  final String? lampeggianti;
-  final String? sirene;
-  final String? spazzole;
-  final String? distribuzione;
-  final String? inverter;
-  final String? batteriaServizi;
-  final String? ruote;
-  final String? assicurazione;
   final String? notes;
   final Map<String, dynamic> customFields;
 
@@ -88,17 +60,6 @@ class CreateMaintenanceInput {
     required this.vehicleId,
     required this.date,
     this.km,
-    this.tagliando,
-    this.revisione,
-    this.luci,
-    this.lampeggianti,
-    this.sirene,
-    this.spazzole,
-    this.distribuzione,
-    this.inverter,
-    this.batteriaServizi,
-    this.ruote,
-    this.assicurazione,
     this.notes,
     this.customFields = const {},
   });
@@ -109,17 +70,6 @@ class CreateMaintenanceInput {
             '${date.month.toString().padLeft(2, '0')}-'
             '${date.day.toString().padLeft(2, '0')}',
         'km': km,
-        'tagliando': tagliando,
-        'revisione': revisione,
-        'luci': luci,
-        'lampeggianti': lampeggianti,
-        'sirene': sirene,
-        'spazzole': spazzole,
-        'distribuzione': distribuzione,
-        'inverter': inverter,
-        'batteria_servizi': batteriaServizi,
-        'ruote': ruote,
-        'assicurazione': assicurazione,
         'notes': notes,
         'custom_fields': customFields,
       };

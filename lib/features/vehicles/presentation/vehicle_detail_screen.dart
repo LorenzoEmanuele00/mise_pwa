@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../app/theme/app_theme.dart';
 import '../../../features/maintenance/data/maintenance_providers.dart';
+import '../../../features/maintenance/domain/maintenance_field.dart';
 import '../../../features/maintenance/domain/maintenance_record.dart';
 import '../../../shared/widgets/gm_widgets.dart';
 import '../data/vehicle_providers.dart';
@@ -297,8 +298,10 @@ class _MaintenanceSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final recordsAsync =
-        ref.watch(maintenanceRecordsProvider(vehicle.id));
+    final recordsAsync = ref.watch(maintenanceRecordsProvider(vehicle.id));
+    // Field definitions (best-effort: use empty list if not yet loaded)
+    final allFields = ref.watch(maintenanceFieldsProvider).value ?? [];
+    final fields = fieldsForType(allFields, vehicle.typeId);
 
     return recordsAsync.when(
       loading: () => const Center(
@@ -313,8 +316,8 @@ class _MaintenanceSection extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Text(
             'Impossibile caricare le schede: $e',
-            style:
-                GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.text3),
+            style: GoogleFonts.ibmPlexSans(
+                fontSize: 13, color: AppColors.text3),
           ),
         ),
       ),
@@ -354,6 +357,7 @@ class _MaintenanceSection extends ConsumerWidget {
                     padding: const EdgeInsets.only(bottom: 10),
                     child: _MaintenanceCard(
                       record: r,
+                      fields: fields,
                       onTap: () => context.push(
                           '/vehicles/${vehicle.id}/maintenance/${r.id}'),
                     ),
@@ -365,15 +369,20 @@ class _MaintenanceSection extends ConsumerWidget {
   }
 }
 
+// ── Chip urgency status ───────────────────────────────────────
+enum _ChipStatus { bad, warn, neutral }
+
 // ── Maintenance list card ─────────────────────────────────────
 class _MaintenanceCard extends StatelessWidget {
   final MaintenanceRecord record;
+  final List<MaintenanceField> fields;
   final VoidCallback onTap;
-  const _MaintenanceCard({required this.record, required this.onTap});
 
-  static const _good = {
-    'OK', 'In regola', 'Effettuato', 'Effettuata', 'Non applicabile'
-  };
+  const _MaintenanceCard({
+    required this.record,
+    required this.fields,
+    required this.onTap,
+  });
 
   static String _fmtDate(DateTime d) {
     const months = [
@@ -390,29 +399,56 @@ class _MaintenanceCard extends StatelessWidget {
     return '$km km';
   }
 
-  List<(String, String, bool)> _notableFields() {
-    final fields = [
-      ('Tagliando', record.tagliando),
-      ('Revisione', record.revisione),
-      ('Luci', record.luci),
-      ('Lampeggianti', record.lampeggianti),
-      ('Sirene', record.sirene),
-      ('Spazzole', record.spazzole),
-      ('Distribuzione', record.distribuzione),
-      ('Inverter', record.inverter),
-      ('Batteria', record.batteriaServizi),
-      ('Ruote', record.ruote),
-      ('Assicurazione', record.assicurazione),
+  static bool _isGood(String v) {
+    final l = v.toLowerCase().trim();
+    return l == 'ok' ||
+        l == 'in regola' ||
+        l == 'effettuato' ||
+        l == 'effettuata' ||
+        l == 'non applicabile';
+  }
+
+  static bool _isBad(String v) {
+    final l = v.toLowerCase();
+    return l.contains('scadut') ||
+        l.contains('guasto') ||
+        l.contains('carica bassa');
+  }
+
+  static bool _isWarn(String v) {
+    final l = v.toLowerCase();
+    return l.contains('in scadenza') ||
+        l.contains('da fare') ||
+        l.contains('da sostituire') ||
+        l.contains('da verificare') ||
+        l.contains('da cambiare') ||
+        l.contains('usura');
+  }
+
+  static String _fmtExpiryDate(DateTime d) {
+    const months = [
+      'gen', 'feb', 'mar', 'apr', 'mag', 'giu',
+      'lug', 'ago', 'set', 'ott', 'nov', 'dic',
     ];
-    return fields
-        .where((f) => f.$2 != null && !_good.contains(f.$2))
-        .map((f) {
-          final isBad = (f.$2!.toLowerCase().contains('scadut') ||
-              f.$2!.toLowerCase().contains('guasto') ||
-              f.$2!.toLowerCase().contains('carica bassa'));
-          return (f.$1, f.$2!, isBad);
-        })
-        .toList();
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
+  }
+
+  List<(String, String, _ChipStatus)> _notableFields() {
+    final result = <(String, String, _ChipStatus)>[];
+    for (final f in fields) {
+      final value = record.value(f.fieldKey);
+      if (value == null || value.isEmpty || _isGood(value)) continue;
+      final status = _isBad(value)
+          ? _ChipStatus.bad
+          : (_isWarn(value) ? _ChipStatus.warn : _ChipStatus.neutral);
+      String label = value;
+      if (f.tracksExpiry) {
+        final exp = record.expiry(f.fieldKey);
+        if (exp != null) label = '$value · ${_fmtExpiryDate(exp)}';
+      }
+      result.add((f.label, label, status));
+    }
+    return result;
   }
 
   @override
@@ -454,8 +490,13 @@ class _MaintenanceCard extends StatelessWidget {
               spacing: 6,
               runSpacing: 5,
               children: notable.map((f) {
-                final color = f.$3 ? AppColors.badFg : AppColors.warnFg;
-                final bg = f.$3 ? AppColors.badBg : AppColors.warnBg;
+                final (label, value, status) = f;
+                final (fg, bg) = switch (status) {
+                  _ChipStatus.bad => (AppColors.badFg, AppColors.badBg),
+                  _ChipStatus.warn => (AppColors.warnFg, AppColors.warnBg),
+                  _ChipStatus.neutral =>
+                    (AppColors.text2, AppColors.surface2),
+                };
                 return Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 3),
@@ -464,11 +505,11 @@ class _MaintenanceCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(7),
                   ),
                   child: Text(
-                    '${f.$1}: ${f.$2}',
+                    '$label: $value',
                     style: GoogleFonts.ibmPlexSans(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
-                        color: color),
+                        color: fg),
                   ),
                 );
               }).toList(),

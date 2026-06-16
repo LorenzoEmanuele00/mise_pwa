@@ -9,38 +9,10 @@ import '../../../features/vehicles/data/vehicle_providers.dart';
 import '../../../features/vehicles/domain/vehicle.dart';
 import '../../../shared/widgets/gm_widgets.dart';
 import '../data/maintenance_providers.dart';
+import '../domain/maintenance_field.dart';
 import '../domain/maintenance_record.dart';
 
-// ── Field config ──────────────────────────────────────────────
-class _FC {
-  final String key;
-  final String label;
-  final List<String> opts;
-  const _FC(this.key, this.label, this.opts);
-}
-
 const _kOther = 'Altro…';
-
-const _fieldConfigs = <_FC>[
-  _FC('tagliando', 'Tagliando', ['Effettuato', 'Da fare', 'Non applicabile']),
-  _FC('revisione', 'Revisione',
-      ['Effettuata', 'In scadenza', 'Scaduta', 'Non applicabile']),
-  _FC('luci', 'Luci', ['OK', 'Da verificare', 'Sostituire']),
-  _FC('lampeggianti', 'Lampeggianti',
-      ['OK', 'Da verificare', 'Sostituire', 'Non applicabile']),
-  _FC('sirene', 'Sirene',
-      ['OK', 'Da verificare', 'Sostituire', 'Non applicabile']),
-  _FC('spazzole', 'Spazzole', ['OK', 'Da sostituire']),
-  _FC('distribuzione', 'Distribuzione',
-      ['OK', 'In scadenza', 'Da sostituire', 'Non applicabile']),
-  _FC('inverter', 'Inverter',
-      ['OK', 'Da verificare', 'Guasto', 'Non applicabile']),
-  _FC('batteria_servizi', 'Batteria servizi',
-      ['OK', 'Carica bassa', 'Da sostituire', 'Non applicabile']),
-  _FC('ruote', 'Ruote', ['OK', 'Usura normale', 'Da cambiare']),
-  _FC('assicurazione', 'Assicurazione',
-      ['In regola', 'In scadenza (30 gg)', 'Scaduta']),
-];
 
 // ── Screen ────────────────────────────────────────────────────
 class MaintenanceFormScreen extends ConsumerStatefulWidget {
@@ -62,63 +34,56 @@ class MaintenanceFormScreen extends ConsumerStatefulWidget {
 
 class _MaintenanceFormScreenState
     extends ConsumerState<MaintenanceFormScreen> {
+  // ── Fixed core fields ────────────────────────────────────────
   DateTime _date = DateTime.now();
   final _kmCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
 
-  // Dropdown selections (key → chosen option, possibly _kOther)
+  // ── Dynamic field state (keyed by field_key) ─────────────────
+  /// Dropdown selection (may be _kOther).
   final Map<String, String?> _selected = {};
-  // Custom text controllers for "Altro…" entries
-  final Map<String, TextEditingController> _customCtrls = {};
+  /// Text controller for dropdown "Altro…" entries and text/number fields.
+  final Map<String, TextEditingController> _ctrls = {};
+  /// Expiry date for fields with tracksExpiry = true (null = not set).
+  final Map<String, DateTime?> _expiry = {};
 
   bool _loading = false;
   bool _initialized = false;
 
   @override
-  void initState() {
-    super.initState();
-    for (final f in _fieldConfigs) {
-      _customCtrls[f.key] = TextEditingController();
-    }
-  }
-
-  @override
   void dispose() {
     _kmCtrl.dispose();
     _notesCtrl.dispose();
-    for (final c in _customCtrls.values) {
+    for (final c in _ctrls.values) {
       c.dispose();
     }
     super.dispose();
   }
 
-  void _initFromRecord(MaintenanceRecord r) {
+  // ── Lazy controller access ────────────────────────────────────
+  TextEditingController _ctrl(String key) =>
+      _ctrls.putIfAbsent(key, () => TextEditingController());
+
+  // ── Initialization from existing record ───────────────────────
+  void _maybeInit(MaintenanceRecord r, List<MaintenanceField> fields) {
     if (_initialized) return;
     _initialized = true;
     _date = r.date;
     _kmCtrl.text = r.km?.toString() ?? '';
     _notesCtrl.text = r.notes ?? '';
-    for (final f in _fieldConfigs) {
-      _initDropdown(f.key, _recordValue(r, f.key), f.opts);
+    for (final f in fields) {
+      final stored = r.value(f.fieldKey);
+      if (f.fieldType == MaintenanceFieldType.dropdown) {
+        _initDropdown(f.fieldKey, stored, f.options);
+      } else {
+        _ctrl(f.fieldKey).text = stored ?? '';
+      }
+      if (f.tracksExpiry) {
+        _expiry[f.fieldKey] = r.expiry(f.fieldKey);
+      }
     }
     setState(() {});
   }
-
-  // Extract a field value from the record by snake_case key
-  String? _recordValue(MaintenanceRecord r, String key) => switch (key) {
-        'tagliando' => r.tagliando,
-        'revisione' => r.revisione,
-        'luci' => r.luci,
-        'lampeggianti' => r.lampeggianti,
-        'sirene' => r.sirene,
-        'spazzole' => r.spazzole,
-        'distribuzione' => r.distribuzione,
-        'inverter' => r.inverter,
-        'batteria_servizi' => r.batteriaServizi,
-        'ruote' => r.ruote,
-        'assicurazione' => r.assicurazione,
-        _ => null,
-      };
 
   void _initDropdown(String key, String? stored, List<String> opts) {
     if (stored == null || stored.isEmpty) {
@@ -126,46 +91,66 @@ class _MaintenanceFormScreenState
     } else if (opts.contains(stored)) {
       _selected[key] = stored;
     } else {
+      // Stored value is a custom "Altro…" text
       _selected[key] = _kOther;
-      _customCtrls[key]!.text = stored;
+      _ctrl(key).text = stored;
     }
   }
 
-  String? _effectiveValue(String key) {
+  // ── Effective value helpers ───────────────────────────────────
+  String? _effectiveDropdown(String key) {
     final sel = _selected[key];
     if (sel == null) return null;
     if (sel == _kOther) {
-      final t = _customCtrls[key]!.text.trim();
+      final t = _ctrl(key).text.trim();
       return t.isEmpty ? null : t;
     }
     return sel;
   }
 
-  CreateMaintenanceInput _buildInput() => CreateMaintenanceInput(
-        vehicleId: widget.vehicleId,
-        date: _date,
-        km: _kmCtrl.text.trim().isEmpty
-            ? null
-            : int.tryParse(_kmCtrl.text.trim()),
-        tagliando: _effectiveValue('tagliando'),
-        revisione: _effectiveValue('revisione'),
-        luci: _effectiveValue('luci'),
-        lampeggianti: _effectiveValue('lampeggianti'),
-        sirene: _effectiveValue('sirene'),
-        spazzole: _effectiveValue('spazzole'),
-        distribuzione: _effectiveValue('distribuzione'),
-        inverter: _effectiveValue('inverter'),
-        batteriaServizi: _effectiveValue('batteria_servizi'),
-        ruote: _effectiveValue('ruote'),
-        assicurazione: _effectiveValue('assicurazione'),
-        notes: _notesCtrl.text.trim().isEmpty
-            ? null
-            : _notesCtrl.text.trim(),
-      );
+  // ── Build input from current form state ───────────────────────
+  CreateMaintenanceInput _buildInput(List<MaintenanceField> fields) {
+    final cf = <String, dynamic>{};
+    for (final f in fields) {
+      String? value;
+      if (f.fieldType == MaintenanceFieldType.dropdown) {
+        value = _effectiveDropdown(f.fieldKey);
+      } else {
+        final t = _ctrl(f.fieldKey).text.trim();
+        value = t.isEmpty ? null : t;
+      }
+      if (value != null) cf[f.fieldKey] = value;
+      if (f.tracksExpiry) {
+        final exp = _expiry[f.fieldKey];
+        if (exp != null) {
+          cf[MaintenanceRecord.expiryKey(f.fieldKey)] =
+              '${exp.year.toString().padLeft(4, '0')}-'
+              '${exp.month.toString().padLeft(2, '0')}-'
+              '${exp.day.toString().padLeft(2, '0')}';
+        }
+      }
+    }
+    return CreateMaintenanceInput(
+      vehicleId: widget.vehicleId,
+      date: _date,
+      km: _kmCtrl.text.trim().isEmpty
+          ? null
+          : int.tryParse(_kmCtrl.text.trim()),
+      notes: _notesCtrl.text.trim().isEmpty
+          ? null
+          : _notesCtrl.text.trim(),
+      customFields: cf,
+    );
+  }
 
+  // ── Actions ───────────────────────────────────────────────────
   Future<void> _submit() async {
     setState(() => _loading = true);
-    final input = _buildInput();
+
+    final allFields = ref.read(maintenanceFieldsProvider).value ?? [];
+    final vehicle = ref.read(vehicleProvider(widget.vehicleId)).value;
+    final fields = fieldsForType(allFields, vehicle?.typeId);
+    final input = _buildInput(fields);
     final repo = ref.read(maintenanceRepositoryProvider);
 
     try {
@@ -179,9 +164,8 @@ class _MaintenanceFormScreenState
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(widget.isEdit
-              ? 'Scheda aggiornata'
-              : 'Scheda di manutenzione salvata'),
+          content: Text(
+              widget.isEdit ? 'Scheda aggiornata' : 'Scheda salvata'),
         ));
         if (context.canPop()) context.pop();
       }
@@ -202,7 +186,8 @@ class _MaintenanceFormScreenState
       builder: (ctx) => AlertDialog(
         title: const Text('Elimina scheda'),
         content: const Text(
-            'Eliminare questa scheda di manutenzione? L\'operazione non è reversibile.'),
+            'Eliminare questa scheda di manutenzione? '
+            'L\'operazione non è reversibile.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -247,16 +232,38 @@ class _MaintenanceFormScreenState
     }
   }
 
+  // ── Build ─────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    // Initialize form state from existing record (edit mode)
-    if (widget.isEdit) {
-      ref
-          .watch(maintenanceRecordProvider(widget.recordId!))
-          .whenData(_initFromRecord);
+    final vehicleAsync = ref.watch(vehicleProvider(widget.vehicleId));
+    final fieldsAsync = ref.watch(maintenanceFieldsProvider);
+
+    // Wait for vehicle and field definitions
+    if (vehicleAsync.isLoading || fieldsAsync.isLoading) {
+      return _buildLoadingScaffold();
+    }
+    if (vehicleAsync.hasError || fieldsAsync.hasError) {
+      return _buildErrorScaffold(
+          (vehicleAsync.error ?? fieldsAsync.error).toString());
     }
 
-    final vehicleAsync = ref.watch(vehicleProvider(widget.vehicleId));
+    final vehicle = vehicleAsync.value!;
+    final allFields = fieldsAsync.value!;
+    final fields = fieldsForType(allFields, vehicle.typeId);
+
+    // Edit mode: also wait for the existing record
+    if (widget.isEdit) {
+      final recordAsync =
+          ref.watch(maintenanceRecordProvider(widget.recordId!));
+      if (recordAsync.isLoading) return _buildLoadingScaffold();
+      if (recordAsync.hasError) {
+        return _buildErrorScaffold(recordAsync.error.toString());
+      }
+      final record = recordAsync.value!;
+      // Initialize form state from record (runs once, then _initialized = true)
+      _maybeInit(record, fields);
+      if (!_initialized) return _buildLoadingScaffold();
+    }
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -274,25 +281,7 @@ class _MaintenanceFormScreenState
               }
             },
           ),
-          Expanded(
-            child: vehicleAsync.when(
-              loading: () => const Center(
-                  child:
-                      CircularProgressIndicator(color: AppColors.accent)),
-              error: (e, _) => Center(
-                  child: Text('Errore: $e',
-                      style:
-                          GoogleFonts.ibmPlexSans(color: AppColors.text2))),
-              data: (vehicle) {
-                if (widget.isEdit && !_initialized) {
-                  return const Center(
-                      child: CircularProgressIndicator(
-                          color: AppColors.accent));
-                }
-                return _buildForm(vehicle);
-              },
-            ),
-          ),
+          Expanded(child: _buildForm(vehicle, fields)),
           GmFooterBar(
             child: GmPrimaryButton(
               label: 'Salva',
@@ -307,15 +296,53 @@ class _MaintenanceFormScreenState
     );
   }
 
-  Widget _buildForm(Vehicle vehicle) {
+  Widget _buildLoadingScaffold() => Scaffold(
+        backgroundColor: AppColors.bg,
+        body: Column(
+          children: [
+            GmTopBar(
+              title: widget.isEdit
+                  ? 'Modifica manutenzione'
+                  : 'Nuova manutenzione',
+              onBack: () =>
+                  context.canPop() ? context.pop() : context.go('/'),
+            ),
+            const Expanded(
+              child: Center(
+                  child: CircularProgressIndicator(color: AppColors.accent)),
+            ),
+          ],
+        ),
+      );
+
+  Widget _buildErrorScaffold(String error) => Scaffold(
+        backgroundColor: AppColors.bg,
+        body: Column(
+          children: [
+            GmTopBar(
+              title: 'Errore',
+              onBack: () =>
+                  context.canPop() ? context.pop() : context.go('/'),
+            ),
+            Expanded(
+              child: Center(
+                child: Text('Impossibile caricare i dati: $error',
+                    style: GoogleFonts.ibmPlexSans(color: AppColors.text2)),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  // ── Form body ─────────────────────────────────────────────────
+  Widget _buildForm(Vehicle vehicle, List<MaintenanceField> fields) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
       children: [
-        // Vehicle context banner
         _VehicleContextBanner(vehicle: vehicle),
         const SizedBox(height: 22),
 
-        // Date
+        // Date (fixed core field)
         GmField(
           label: 'Data',
           required: true,
@@ -326,7 +353,7 @@ class _MaintenanceFormScreenState
         ),
         const SizedBox(height: 18),
 
-        // Km
+        // Km (fixed core field)
         GmField(
           label: 'Chilometraggio',
           child: TextFormField(
@@ -342,18 +369,18 @@ class _MaintenanceFormScreenState
             ),
           ),
         ),
+
+        // Dynamic fields (from maintenance_fields table)
+        if (fields.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          const _SectionDivider(label: 'Stato componenti'),
+          const SizedBox(height: 18),
+          ..._buildDynamicFields(fields),
+        ],
+
         const SizedBox(height: 24),
 
-        // Section divider
-        const _SectionDivider(label: 'Stato componenti'),
-        const SizedBox(height: 18),
-
-        // All 11 dropdown fields
-        ..._buildDropdownFields(),
-
-        const SizedBox(height: 24),
-
-        // Notes
+        // Notes (fixed core field)
         GmField(
           label: 'Note',
           child: TextFormField(
@@ -362,7 +389,8 @@ class _MaintenanceFormScreenState
             style: GoogleFonts.ibmPlexSans(
                 fontSize: 15, color: AppColors.text),
             decoration: InputDecoration(
-              hintText: 'Annotazioni, ricambi utilizzati, raccomandazioni…',
+              hintText:
+                  'Annotazioni, ricambi utilizzati, raccomandazioni…',
               hintStyle: GoogleFonts.ibmPlexSans(
                   fontSize: 15, color: AppColors.text3),
               contentPadding: const EdgeInsets.all(14),
@@ -370,7 +398,6 @@ class _MaintenanceFormScreenState
           ),
         ),
 
-        // Delete button (edit only)
         if (widget.isEdit) ...[
           const SizedBox(height: 28),
           Center(
@@ -390,15 +417,31 @@ class _MaintenanceFormScreenState
     );
   }
 
-  List<Widget> _buildDropdownFields() {
+  List<Widget> _buildDynamicFields(List<MaintenanceField> fields) {
     final widgets = <Widget>[];
-    for (var i = 0; i < _fieldConfigs.length; i++) {
+    for (var i = 0; i < fields.length; i++) {
       if (i > 0) widgets.add(const SizedBox(height: 18));
-      final fc = _fieldConfigs[i];
+      final f = fields[i];
       widgets.add(GmField(
-        label: fc.label,
-        child: _buildDropdown(fc.key, fc.opts),
+        label: f.label,
+        child: switch (f.fieldType) {
+          MaintenanceFieldType.dropdown =>
+            _buildDropdown(f.fieldKey, f.options),
+          MaintenanceFieldType.number =>
+            _buildTextField(f.fieldKey, isNumber: true),
+          MaintenanceFieldType.text => _buildTextField(f.fieldKey),
+        },
       ));
+      if (f.tracksExpiry) {
+        widgets.add(const SizedBox(height: 10));
+        widgets.add(GmField(
+          label: 'Da effettuare entro',
+          child: _ExpiryDateField(
+            value: _expiry[f.fieldKey],
+            onChanged: (d) => setState(() => _expiry[f.fieldKey] = d),
+          ),
+        ));
+      }
     }
     return widgets;
   }
@@ -411,14 +454,11 @@ class _MaintenanceFormScreenState
         DropdownButtonFormField<String>(
           initialValue: _selected[key],
           items: allOpts
-              .map((o) =>
-                  DropdownMenuItem(value: o, child: Text(o)))
+              .map((o) => DropdownMenuItem(value: o, child: Text(o)))
               .toList(),
-          hint: Text(
-            '—',
-            style: GoogleFonts.ibmPlexSans(
-                fontSize: 15, color: AppColors.text3),
-          ),
+          hint: Text('—',
+              style: GoogleFonts.ibmPlexSans(
+                  fontSize: 15, color: AppColors.text3)),
           style: GoogleFonts.ibmPlexSans(
               fontSize: 15, color: AppColors.text),
           dropdownColor: AppColors.surface,
@@ -428,7 +468,7 @@ class _MaintenanceFormScreenState
         if (_selected[key] == _kOther) ...[
           const SizedBox(height: 8),
           TextFormField(
-            controller: _customCtrls[key],
+            controller: _ctrl(key),
             style: GoogleFonts.ibmPlexSans(
                 fontSize: 15, color: AppColors.text),
             decoration: InputDecoration(
@@ -439,6 +479,25 @@ class _MaintenanceFormScreenState
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildTextField(String key, {bool isNumber = false}) {
+    return TextFormField(
+      controller: _ctrl(key),
+      keyboardType:
+          isNumber ? TextInputType.number : TextInputType.text,
+      inputFormatters: isNumber
+          ? [FilteringTextInputFormatter.digitsOnly]
+          : null,
+      style: isNumber
+          ? GoogleFonts.ibmPlexMono(fontSize: 15, color: AppColors.text)
+          : GoogleFonts.ibmPlexSans(fontSize: 15, color: AppColors.text),
+      decoration: InputDecoration(
+        hintText: isNumber ? '0' : '—',
+        hintStyle: GoogleFonts.ibmPlexSans(
+            fontSize: 15, color: AppColors.text3),
+      ),
     );
   }
 }
@@ -511,7 +570,6 @@ class _DateField extends StatelessWidget {
           initialDate: value,
           firstDate: DateTime(2000),
           lastDate: DateTime(2100),
-          locale: const Locale('it'),
         );
         if (picked != null) onChanged(picked);
       },
@@ -534,6 +592,71 @@ class _DateField extends StatelessWidget {
               style: GoogleFonts.ibmPlexSans(
                   fontSize: 15, color: AppColors.text),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Nullable expiry date picker ───────────────────────────────
+class _ExpiryDateField extends StatelessWidget {
+  final DateTime? value;
+  final ValueChanged<DateTime?> onChanged;
+  const _ExpiryDateField({required this.value, required this.onChanged});
+
+  static String _fmt(DateTime d) {
+    const months = [
+      'gen', 'feb', 'mar', 'apr', 'mag', 'giu',
+      'lug', 'ago', 'set', 'ott', 'nov', 'dic',
+    ];
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () async {
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: value ?? DateTime.now(),
+          firstDate: DateTime(2000),
+          lastDate: DateTime(2100),
+        );
+        if (picked != null) onChanged(picked);
+      },
+      child: Container(
+        height: 50,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(color: AppColors.border),
+        ),
+        alignment: Alignment.centerLeft,
+        child: Row(
+          children: [
+            Icon(
+              Icons.event_outlined,
+              size: 16,
+              color: value != null ? AppColors.accent : AppColors.text3,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                value != null ? _fmt(value!) : '—',
+                style: GoogleFonts.ibmPlexSans(
+                  fontSize: 15,
+                  color: value != null ? AppColors.text : AppColors.text3,
+                ),
+              ),
+            ),
+            if (value != null)
+              GestureDetector(
+                onTap: () => onChanged(null),
+                child: const Icon(Icons.close_rounded,
+                    size: 16, color: AppColors.text3),
+              ),
           ],
         ),
       ),

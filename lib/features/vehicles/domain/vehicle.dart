@@ -5,12 +5,16 @@ class VehicleType {
   final String code;
   final String label;
   final bool isCustom;
+  /// Abbreviazione definita a DB (colonna `abbreviation` su vehicle_types).
+  /// Se null, si usa il fallback basato sul codice / prime lettere del label.
+  final String? abbreviationOverride;
 
   const VehicleType({
     required this.id,
     required this.code,
     required this.label,
     required this.isCustom,
+    this.abbreviationOverride,
   });
 
   factory VehicleType.fromJson(Map<String, dynamic> json) => VehicleType(
@@ -18,15 +22,20 @@ class VehicleType {
         code: json['code'] as String,
         label: json['label'] as String,
         isCustom: json['is_custom'] as bool? ?? false,
+        abbreviationOverride: json['abbreviation'] as String?,
       );
 
   String get abbreviation {
-    final map = {
+    if (abbreviationOverride != null && abbreviationOverride!.isNotEmpty) {
+      return abbreviationOverride!;
+    }
+    const map = {
       'ambulance': 'AMB',
       'equipped_vehicle': 'ATT',
       'car': 'AUTO',
     };
-    return map[code] ?? label.substring(0, label.length.clamp(0, 3)).toUpperCase();
+    return map[code] ??
+        label.substring(0, label.length.clamp(0, 3)).toUpperCase();
   }
 
   Color get tileColor => const Color(0xFFF0F4FF);
