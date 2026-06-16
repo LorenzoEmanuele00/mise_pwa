@@ -72,11 +72,15 @@ class _MaintenanceFormScreenState
     _kmCtrl.text = r.km?.toString() ?? '';
     _notesCtrl.text = r.notes ?? '';
     for (final f in fields) {
-      final stored = r.value(f.fieldKey);
-      if (f.fieldType == MaintenanceFieldType.dropdown) {
-        _initDropdown(f.fieldKey, stored, f.options);
+      if (f.tracksExpiry && f.options.isEmpty) {
+        // Pure date field: only restore expiry date, no dropdown to init
       } else {
-        _ctrl(f.fieldKey).text = stored ?? '';
+        final stored = r.value(f.fieldKey);
+        if (f.fieldType == MaintenanceFieldType.dropdown) {
+          _initDropdown(f.fieldKey, stored, f.options);
+        } else {
+          _ctrl(f.fieldKey).text = stored ?? '';
+        }
       }
       if (f.tracksExpiry) {
         _expiry[f.fieldKey] = r.expiry(f.fieldKey);
@@ -109,24 +113,30 @@ class _MaintenanceFormScreenState
   }
 
   // ── Build input from current form state ───────────────────────
+  static String _fmtIso(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+
   CreateMaintenanceInput _buildInput(List<MaintenanceField> fields) {
     final cf = <String, dynamic>{};
     for (final f in fields) {
-      String? value;
-      if (f.fieldType == MaintenanceFieldType.dropdown) {
-        value = _effectiveDropdown(f.fieldKey);
-      } else {
-        final t = _ctrl(f.fieldKey).text.trim();
-        value = t.isEmpty ? null : t;
-      }
-      if (value != null) cf[f.fieldKey] = value;
-      if (f.tracksExpiry) {
+      if (f.tracksExpiry && f.options.isEmpty) {
+        // Pure date field: only write the expiry date, no dropdown value
         final exp = _expiry[f.fieldKey];
-        if (exp != null) {
-          cf[MaintenanceRecord.expiryKey(f.fieldKey)] =
-              '${exp.year.toString().padLeft(4, '0')}-'
-              '${exp.month.toString().padLeft(2, '0')}-'
-              '${exp.day.toString().padLeft(2, '0')}';
+        if (exp != null) cf[MaintenanceRecord.expiryKey(f.fieldKey)] = _fmtIso(exp);
+      } else {
+        String? value;
+        if (f.fieldType == MaintenanceFieldType.dropdown) {
+          value = _effectiveDropdown(f.fieldKey);
+        } else {
+          final t = _ctrl(f.fieldKey).text.trim();
+          value = t.isEmpty ? null : t;
+        }
+        if (value != null) cf[f.fieldKey] = value;
+        if (f.tracksExpiry) {
+          final exp = _expiry[f.fieldKey];
+          if (exp != null) cf[MaintenanceRecord.expiryKey(f.fieldKey)] = _fmtIso(exp);
         }
       }
     }
@@ -422,25 +432,38 @@ class _MaintenanceFormScreenState
     for (var i = 0; i < fields.length; i++) {
       if (i > 0) widgets.add(const SizedBox(height: 18));
       final f = fields[i];
-      widgets.add(GmField(
-        label: f.label,
-        child: switch (f.fieldType) {
-          MaintenanceFieldType.dropdown =>
-            _buildDropdown(f.fieldKey, f.options),
-          MaintenanceFieldType.number =>
-            _buildTextField(f.fieldKey, isNumber: true),
-          MaintenanceFieldType.text => _buildTextField(f.fieldKey),
-        },
-      ));
-      if (f.tracksExpiry) {
-        widgets.add(const SizedBox(height: 10));
+
+      if (f.tracksExpiry && f.options.isEmpty) {
+        // Pure date field: single date picker, status computed from date
         widgets.add(GmField(
-          label: 'Da effettuare entro',
+          label: f.label,
           child: _ExpiryDateField(
             value: _expiry[f.fieldKey],
             onChanged: (d) => setState(() => _expiry[f.fieldKey] = d),
           ),
         ));
+      } else {
+        // Normal dropdown / text / number field
+        widgets.add(GmField(
+          label: f.label,
+          child: switch (f.fieldType) {
+            MaintenanceFieldType.dropdown =>
+              _buildDropdown(f.fieldKey, f.options),
+            MaintenanceFieldType.number =>
+              _buildTextField(f.fieldKey, isNumber: true),
+            MaintenanceFieldType.text => _buildTextField(f.fieldKey),
+          },
+        ));
+        if (f.tracksExpiry) {
+          widgets.add(const SizedBox(height: 10));
+          widgets.add(GmField(
+            label: 'Da effettuare entro',
+            child: _ExpiryDateField(
+              value: _expiry[f.fieldKey],
+              onChanged: (d) => setState(() => _expiry[f.fieldKey] = d),
+            ),
+          ));
+        }
       }
     }
     return widgets;

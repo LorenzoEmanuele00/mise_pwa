@@ -434,8 +434,25 @@ class _MaintenanceCard extends StatelessWidget {
   }
 
   List<(String, String, _ChipStatus)> _notableFields() {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
     final result = <(String, String, _ChipStatus)>[];
+
     for (final f in fields) {
+      if (f.tracksExpiry && f.options.isEmpty) {
+        // Pure date field: status computed from expiry date
+        final exp = record.expiry(f.fieldKey);
+        if (exp == null) continue;
+        final expDate = DateTime(exp.year, exp.month, exp.day);
+        final diff = expDate.difference(todayDate).inDays;
+        if (diff > 30) continue; // effettuata → good, skip
+        final status = diff < 0 ? _ChipStatus.bad : _ChipStatus.warn;
+        final statusLabel = diff < 0 ? 'Scaduta' : 'In scadenza';
+        result.add((f.label, '$statusLabel · ${_fmtExpiryDate(exp)}', status));
+        continue;
+      }
+
+      // Standard dropdown/text field
       final value = record.value(f.fieldKey);
       if (value == null || value.isEmpty || _isGood(value)) continue;
       final status = _isBad(value)

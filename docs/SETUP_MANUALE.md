@@ -115,9 +115,9 @@ INSERT INTO maintenance_fields (field_key, label, field_type, options, sort_orde
   ('tagliando',        'Tagliando',        'dropdown',
    '["Effettuato","Da fare","Non applicabile"]', 10),
   ('revisione',        'Revisione',        'dropdown',
-   '["Effettuata","In scadenza","Scaduta","Non applicabile"]', 20),
+   '[]', 20),
   ('assicurazione',    'Assicurazione',    'dropdown',
-   '["In regola","In scadenza (30 gg)","Scaduta"]', 30),
+   '[]', 30),
   ('luci',             'Luci',             'dropdown',
    '["OK","Da verificare","Sostituire"]', 40),
   ('lampeggianti',     'Lampeggianti',     'dropdown',
@@ -129,14 +129,15 @@ INSERT INTO maintenance_fields (field_key, label, field_type, options, sort_orde
   ('ruote',            'Ruote',            'dropdown',
    '["OK","Usura normale","Da cambiare"]', 80),
   ('distribuzione',    'Distribuzione',    'dropdown',
-   '["OK","In scadenza","Da sostituire","Non applicabile"]', 90),
+   '[]', 90),
   ('inverter',         'Inverter',         'dropdown',
    '["OK","Da verificare","Guasto","Non applicabile"]', 100),
   ('batteria_servizi', 'Batteria servizi', 'dropdown',
    '["OK","Carica bassa","Da sostituire","Non applicabile"]', 110);
 
--- Attiva il tracking della data di scadenza per i campi che la prevedono
-UPDATE maintenance_fields SET tracks_expiry = TRUE
+-- I 3 campi di scadenza: tracks_expiry=TRUE + options=[] → solo date-picker,
+-- stato calcolato dalla data (scaduta/<30gg/effettuata)
+UPDATE maintenance_fields SET tracks_expiry = TRUE, options = '[]'
 WHERE field_key IN ('revisione', 'assicurazione', 'distribuzione');
 
 -- ============================================================
@@ -261,21 +262,21 @@ CREATE POLICY "authenticated_all" ON maintenance_fields
 INSERT INTO maintenance_fields (field_key, label, field_type, options, sort_order)
 VALUES
   ('tagliando',        'Tagliando',        'dropdown', '["Effettuato","Da fare","Non applicabile"]', 10),
-  ('revisione',        'Revisione',        'dropdown', '["Effettuata","In scadenza","Scaduta","Non applicabile"]', 20),
-  ('assicurazione',    'Assicurazione',    'dropdown', '["In regola","In scadenza (30 gg)","Scaduta"]', 30),
+  ('revisione',        'Revisione',        'dropdown', '[]', 20),
+  ('assicurazione',    'Assicurazione',    'dropdown', '[]', 30),
   ('luci',             'Luci',             'dropdown', '["OK","Da verificare","Sostituire"]', 40),
   ('lampeggianti',     'Lampeggianti',     'dropdown', '["OK","Da verificare","Sostituire","Non applicabile"]', 50),
   ('sirene',           'Sirene',           'dropdown', '["OK","Da verificare","Sostituire","Non applicabile"]', 60),
   ('spazzole',         'Spazzole',         'dropdown', '["OK","Da sostituire"]', 70),
   ('ruote',            'Ruote',            'dropdown', '["OK","Usura normale","Da cambiare"]', 80),
-  ('distribuzione',    'Distribuzione',    'dropdown', '["OK","In scadenza","Da sostituire","Non applicabile"]', 90),
+  ('distribuzione',    'Distribuzione',    'dropdown', '[]', 90),
   ('inverter',         'Inverter',         'dropdown', '["OK","Da verificare","Guasto","Non applicabile"]', 100),
   ('batteria_servizi', 'Batteria servizi', 'dropdown', '["OK","Carica bassa","Da sostituire","Non applicabile"]', 110)
 ON CONFLICT (field_key) DO NOTHING;
 
--- 7. Aggiungi tracks_expiry se non esiste (se hai già creato maintenance_fields in precedenza)
+-- 7. Aggiungi tracks_expiry se non esiste; azzera options per i campi puri di scadenza
 ALTER TABLE maintenance_fields ADD COLUMN IF NOT EXISTS tracks_expiry BOOLEAN DEFAULT FALSE;
-UPDATE maintenance_fields SET tracks_expiry = TRUE
+UPDATE maintenance_fields SET tracks_expiry = TRUE, options = '[]'
 WHERE field_key IN ('revisione', 'assicurazione', 'distribuzione');
 ```
 
@@ -296,9 +297,18 @@ Nel dettaglio del mezzo la data appare accanto al valore nel chip (es. *Revision
 
 Di default `tracks_expiry = TRUE` per: **revisione**, **assicurazione**, **distribuzione**.
 
+**Comportamento in base a `options`:**
+- `options = []` (vuoto) → il campo mostra **solo il date-picker**. Lo stato nel dettaglio mezzo viene calcolato dalla data: scaduta se passata, in scadenza se ≤ 30 giorni, effettuata (nascosta) altrimenti.
+- `options` valorizzato → mostra il dropdown + date-picker aggiuntivo. Lo stato nel chip segue il testo selezionato.
+
 ```sql
--- Attivare per un campo aggiuntivo
-UPDATE maintenance_fields SET tracks_expiry = TRUE  WHERE field_key = 'tagliando';
+-- Attivare per un campo aggiuntivo (solo date-picker)
+UPDATE maintenance_fields SET tracks_expiry = TRUE, options = '[]'
+WHERE field_key = 'tagliando';
+
+-- Attivare con dropdown (mantiene le opzioni, aggiunge date-picker)
+UPDATE maintenance_fields SET tracks_expiry = TRUE
+WHERE field_key = 'tagliando';
 
 -- Disattivare (il date-picker sparisce; i valori già salvati restano nel JSONB)
 UPDATE maintenance_fields SET tracks_expiry = FALSE WHERE field_key = 'distribuzione';
