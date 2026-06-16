@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../app/theme/app_theme.dart';
+import '../../../features/maintenance/data/maintenance_providers.dart';
+import '../../../features/maintenance/domain/maintenance_record.dart';
 import '../../../shared/widgets/gm_widgets.dart';
 import '../data/vehicle_providers.dart';
 import '../domain/vehicle.dart';
@@ -255,37 +257,7 @@ class _VehicleDetailView extends ConsumerWidget {
 
                   const SizedBox(height: 12),
 
-                  // Placeholder Fase 4
-                  GmCard(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: Column(
-                        children: [
-                          Icon(Icons.build_circle_outlined,
-                              size: 40, color: AppColors.text3),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Nessun intervento registrato',
-                            style: GoogleFonts.ibmPlexSans(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.text2,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Avvia la prima manutenzione con il pulsante qui sopra.',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.ibmPlexSans(
-                              fontSize: 13,
-                              color: AppColors.text3,
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  _MaintenanceSection(vehicle: vehicle),
                 ],
               ),
             ),
@@ -313,6 +285,206 @@ class _RetryButton extends StatelessWidget {
         child: Text('Riprova',
             style: GoogleFonts.ibmPlexSans(
                 color: AppColors.accent, fontWeight: FontWeight.w600)),
+      ),
+    );
+  }
+}
+
+// ── Maintenance section ───────────────────────────────────────
+class _MaintenanceSection extends ConsumerWidget {
+  final Vehicle vehicle;
+  const _MaintenanceSection({required this.vehicle});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recordsAsync =
+        ref.watch(maintenanceRecordsProvider(vehicle.id));
+
+    return recordsAsync.when(
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: CircularProgressIndicator(
+              strokeWidth: 2, color: AppColors.accent),
+        ),
+      ),
+      error: (e, _) => GmCard(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            'Impossibile caricare le schede: $e',
+            style:
+                GoogleFonts.ibmPlexSans(fontSize: 13, color: AppColors.text3),
+          ),
+        ),
+      ),
+      data: (records) {
+        if (records.isEmpty) {
+          return GmCard(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Column(
+                children: [
+                  const Icon(Icons.build_circle_outlined,
+                      size: 40, color: AppColors.text3),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Nessun intervento registrato',
+                    style: GoogleFonts.ibmPlexSans(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.text2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Avvia la prima manutenzione con il pulsante qui sopra.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.ibmPlexSans(
+                        fontSize: 13, color: AppColors.text3, height: 1.5),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        return Column(
+          children: records
+              .map((r) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _MaintenanceCard(
+                      record: r,
+                      onTap: () => context.push(
+                          '/vehicles/${vehicle.id}/maintenance/${r.id}'),
+                    ),
+                  ))
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+// ── Maintenance list card ─────────────────────────────────────
+class _MaintenanceCard extends StatelessWidget {
+  final MaintenanceRecord record;
+  final VoidCallback onTap;
+  const _MaintenanceCard({required this.record, required this.onTap});
+
+  static const _good = {
+    'OK', 'In regola', 'Effettuato', 'Effettuata', 'Non applicabile'
+  };
+
+  static String _fmtDate(DateTime d) {
+    const months = [
+      'gen', 'feb', 'mar', 'apr', 'mag', 'giu',
+      'lug', 'ago', 'set', 'ott', 'nov', 'dic',
+    ];
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
+  }
+
+  static String _fmtKm(int km) {
+    if (km >= 1000) {
+      return '${(km / 1000).toStringAsFixed(km % 1000 == 0 ? 0 : 1)} k km';
+    }
+    return '$km km';
+  }
+
+  List<(String, String, bool)> _notableFields() {
+    final fields = [
+      ('Tagliando', record.tagliando),
+      ('Revisione', record.revisione),
+      ('Luci', record.luci),
+      ('Lampeggianti', record.lampeggianti),
+      ('Sirene', record.sirene),
+      ('Spazzole', record.spazzole),
+      ('Distribuzione', record.distribuzione),
+      ('Inverter', record.inverter),
+      ('Batteria', record.batteriaServizi),
+      ('Ruote', record.ruote),
+      ('Assicurazione', record.assicurazione),
+    ];
+    return fields
+        .where((f) => f.$2 != null && !_good.contains(f.$2))
+        .map((f) {
+          final isBad = (f.$2!.toLowerCase().contains('scadut') ||
+              f.$2!.toLowerCase().contains('guasto') ||
+              f.$2!.toLowerCase().contains('carica bassa'));
+          return (f.$1, f.$2!, isBad);
+        })
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final notable = _notableFields();
+    return GmCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.calendar_today_rounded,
+                  size: 13, color: AppColors.text3),
+              const SizedBox(width: 5),
+              Text(
+                _fmtDate(record.date),
+                style: GoogleFonts.ibmPlexMono(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.text2),
+              ),
+              const Spacer(),
+              if (record.km != null)
+                Text(
+                  _fmtKm(record.km!),
+                  style: GoogleFonts.ibmPlexMono(
+                      fontSize: 13, color: AppColors.text3),
+                ),
+              const SizedBox(width: 6),
+              const Icon(Icons.chevron_right_rounded,
+                  size: 18, color: AppColors.text3),
+            ],
+          ),
+          if (notable.isNotEmpty) ...[
+            const SizedBox(height: 9),
+            Wrap(
+              spacing: 6,
+              runSpacing: 5,
+              children: notable.map((f) {
+                final color = f.$3 ? AppColors.badFg : AppColors.warnFg;
+                final bg = f.$3 ? AppColors.badBg : AppColors.warnBg;
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Text(
+                    '${f.$1}: ${f.$2}',
+                    style: GoogleFonts.ibmPlexSans(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: color),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+          if (record.notes?.isNotEmpty == true) ...[
+            const SizedBox(height: 8),
+            Text(
+              record.notes!,
+              style: GoogleFonts.ibmPlexSans(
+                  fontSize: 13, color: AppColors.text3),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ],
       ),
     );
   }

@@ -164,7 +164,7 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
         children: [
           // Nome / alias
-          _GmField(
+          GmField(
             label: 'Nome / identificativo',
             child: TextFormField(
               controller: _aliasCtrl,
@@ -181,7 +181,7 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
           const SizedBox(height: 18),
 
           // Tipo veicolo
-          _GmField(
+          GmField(
             label: 'Tipo veicolo',
             required: true,
             child: DropdownButtonFormField<String>(
@@ -209,7 +209,7 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
             children: [
               Expanded(
                 flex: 4,
-                child: _GmField(
+                child: GmField(
                   label: 'Targa',
                   required: true,
                   child: TextFormField(
@@ -240,7 +240,7 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
               const SizedBox(width: 12),
               Expanded(
                 flex: 3,
-                child: _GmField(
+                child: GmField(
                   label: 'Anno',
                   child: TextFormField(
                     controller: _yearCtrl,
@@ -273,7 +273,7 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
           const SizedBox(height: 18),
 
           // Note
-          _GmField(
+          GmField(
             label: 'Note generali',
             child: TextFormField(
               controller: _notesCtrl,
@@ -296,48 +296,3 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
   }
 }
 
-// ── Form field wrapper ────────────────────────────────────────
-class _GmField extends StatelessWidget {
-  final String label;
-  final bool required;
-  final Widget child;
-
-  const _GmField({
-    required this.label,
-    required this.child,
-    this.required = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: GoogleFonts.ibmPlexSans(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppColors.text2,
-                letterSpacing: 0.1,
-              ),
-            ),
-            if (required)
-              Text(
-                ' *',
-                style: GoogleFonts.ibmPlexSans(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.badFg,
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 7),
-        child,
-      ],
-    );
-  }
-}

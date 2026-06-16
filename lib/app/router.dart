@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../features/auth/presentation/login_screen.dart';
+import '../features/maintenance/presentation/maintenance_form_screen.dart';
 import '../features/vehicles/presentation/vehicle_list_screen.dart';
 import '../features/vehicles/presentation/vehicle_detail_screen.dart';
 import '../features/vehicles/presentation/vehicle_form_screen.dart';
@@ -13,8 +14,8 @@ abstract final class AppRoutes {
   static const vehicleNew = '/vehicles/new';
   static const vehicleDetail = '/vehicles/:id';
   static const vehicleEdit = '/vehicles/:id/edit';
-  static const maintenanceList = '/vehicles/:id/maintenance';
   static const maintenanceNew = '/vehicles/:id/maintenance/new';
+  static const maintenanceEdit = '/vehicles/:id/maintenance/:rid';
   static const settings = '/settings';
 }
 
@@ -54,16 +55,18 @@ final appRouter = GoRouter(
           builder: (_, state) =>
               VehicleFormScreen(vehicleId: state.pathParameters['id']!),
         ),
+        // NOTE: maintenance/new MUST come before maintenance/:rid
         GoRoute(
-          path: 'maintenance',
-          builder: (_, _) => const Scaffold(
-            body: Center(child: Text('Manutenzioni — Fase 4')),
+          path: 'maintenance/new',
+          builder: (_, state) => MaintenanceFormScreen(
+            vehicleId: state.pathParameters['id']!,
           ),
         ),
         GoRoute(
-          path: 'maintenance/new',
-          builder: (_, _) => const Scaffold(
-            body: Center(child: Text('Nuova manutenzione — Fase 4')),
+          path: 'maintenance/:rid',
+          builder: (_, state) => MaintenanceFormScreen(
+            vehicleId: state.pathParameters['id']!,
+            recordId: state.pathParameters['rid']!,
           ),
         ),
       ],
