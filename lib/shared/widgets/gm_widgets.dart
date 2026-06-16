@@ -7,6 +7,44 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../app/theme/app_theme.dart';
 import '../../features/vehicles/domain/vehicle.dart';
 
+// ── GmTappable ───────────────────────────────────────────────
+/// Wrapper che aggiunge feedback di opacità (stile iOS) a qualsiasi widget.
+class GmTappable extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+  final HitTestBehavior behavior;
+
+  const GmTappable({
+    super.key,
+    required this.child,
+    required this.onTap,
+    this.behavior = HitTestBehavior.opaque,
+  });
+
+  @override
+  State<GmTappable> createState() => _GmTappableState();
+}
+
+class _GmTappableState extends State<GmTappable> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: widget.behavior,
+      onTapDown: (_) => setState(() => _down = true),
+      onTapUp: (_) => setState(() => _down = false),
+      onTapCancel: () => setState(() => _down = false),
+      onTap: widget.onTap,
+      child: AnimatedOpacity(
+        opacity: _down ? 0.5 : 1.0,
+        duration: const Duration(milliseconds: 60),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
 // ── GmTopBar ──────────────────────────────────────────────────
 /// TopBar in due varianti: large (lista) e small (dettaglio/form).
 class GmTopBar extends StatelessWidget {
@@ -128,9 +166,8 @@ class _BackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return GmTappable(
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
       child: Container(
         width: 44,
         height: 44,
@@ -162,7 +199,7 @@ class GmCircleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return GmTappable(
       onTap: onTap,
       child: Container(
         width: 38,
@@ -274,7 +311,7 @@ class GmChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return GmTappable(
       onTap: onTap,
       child: Container(
         height: 34,

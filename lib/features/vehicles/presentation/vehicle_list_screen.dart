@@ -66,7 +66,7 @@ class _VehicleListScreenState extends ConsumerState<VehicleListScreen> {
                 const SizedBox(width: 8),
                 GmCircleButton(
                   icon: const Icon(Icons.add, size: 22, color: Colors.white),
-                  onTap: () => context.go(AppRoutes.vehicleNew),
+                  onTap: () => context.push(AppRoutes.vehicleNew),
                   background: AppColors.accent,
                   border: AppColors.accent,
                 ),
@@ -113,7 +113,7 @@ class _VehicleListScreenState extends ConsumerState<VehicleListScreen> {
               ),
               data: (all) {
                 if (all.isEmpty) {
-                  return _EmptyState(onAdd: () => context.go(AppRoutes.vehicleNew));
+                  return _EmptyState(onAdd: () => context.push(AppRoutes.vehicleNew));
                 }
                 final list = _filtered(all);
                 return _buildScrollable(
@@ -141,7 +141,7 @@ class _VehicleListScreenState extends ConsumerState<VehicleListScreen> {
                                     padding: const EdgeInsets.only(bottom: 10),
                                     child: _VehicleCard(
                                       vehicle: v,
-                                      onTap: () => context.go('/vehicles/${v.id}'),
+                                      onTap: () => context.push('/vehicles/${v.id}'),
                                     ),
                                   ))
                               .toList(),
@@ -225,7 +225,7 @@ class _VehicleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return GmTappable(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
@@ -356,7 +356,7 @@ class _GhostButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return GmTappable(
       onTap: onTap,
       child: Container(
         height: 44,

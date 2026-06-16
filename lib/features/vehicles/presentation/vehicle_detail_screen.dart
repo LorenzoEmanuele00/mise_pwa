@@ -119,12 +119,18 @@ class _VehicleDetailView extends ConsumerWidget {
           // Top bar con "Modifica" a destra
           GmTopBar(
             title: vehicle.displayName,
-            onBack: () => context.go('/'),
+            onBack: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/');
+              }
+            },
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                GestureDetector(
-                  onTap: () => context.go('/vehicles/${vehicle.id}/edit'),
+                GmTappable(
+                  onTap: () => context.push('/vehicles/${vehicle.id}/edit'),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     child: Text(
@@ -137,7 +143,7 @@ class _VehicleDetailView extends ConsumerWidget {
                     ),
                   ),
                 ),
-                GestureDetector(
+                GmTappable(
                   onTap: () => _confirmDelete(context, ref),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -244,7 +250,7 @@ class _VehicleDetailView extends ConsumerWidget {
                     label: 'Nuova manutenzione',
                     icon: const Icon(Icons.add, color: Colors.white, size: 20),
                     onPressed: () =>
-                        context.go('/vehicles/${vehicle.id}/maintenance/new'),
+                        context.push('/vehicles/${vehicle.id}/maintenance/new'),
                   ),
 
                   const SizedBox(height: 12),
@@ -296,7 +302,7 @@ class _RetryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return GmTappable(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),

@@ -32,17 +32,40 @@ abstract final class AppColors {
   static const infoBg = Color(0xFFE6EEFB);
 }
 
+class _SlideTransitionsBuilder extends PageTransitionsBuilder {
+  const _SlideTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return SlideTransition(
+      position: animation.drive(
+        Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+            .chain(CurveTween(curve: Curves.fastOutSlowIn)),
+      ),
+      child: child,
+    );
+  }
+}
+
 abstract final class AppTheme {
   static TextTheme _textTheme(Brightness brightness) {
     final base = brightness == Brightness.dark
         ? ThemeData.dark().textTheme
         : ThemeData.light().textTheme;
+    // In dark mode non sovrascriviamo i colori: li lasciamo al colorScheme
+    // del tema dark (onSurface = testo chiaro su sfondo scuro).
+    final color = brightness == Brightness.light ? AppColors.text : null;
     return GoogleFonts.ibmPlexSansTextTheme(base).copyWith(
-      // Assicura che i colori siano corretti per il tema light
-      bodyLarge: GoogleFonts.ibmPlexSans(color: AppColors.text),
-      bodyMedium: GoogleFonts.ibmPlexSans(color: AppColors.text),
-      titleMedium: GoogleFonts.ibmPlexSans(color: AppColors.text, fontWeight: FontWeight.w600),
-      titleLarge: GoogleFonts.ibmPlexSans(color: AppColors.text, fontWeight: FontWeight.w700),
+      bodyLarge: GoogleFonts.ibmPlexSans(color: color),
+      bodyMedium: GoogleFonts.ibmPlexSans(color: color),
+      titleMedium: GoogleFonts.ibmPlexSans(color: color, fontWeight: FontWeight.w600),
+      titleLarge: GoogleFonts.ibmPlexSans(color: color, fontWeight: FontWeight.w700),
     );
   }
 
@@ -62,6 +85,16 @@ abstract final class AppTheme {
       colorScheme: cs,
       scaffoldBackgroundColor: AppColors.bg,
       textTheme: _textTheme(Brightness.light),
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: _SlideTransitionsBuilder(),
+          TargetPlatform.iOS: _SlideTransitionsBuilder(),
+          TargetPlatform.macOS: _SlideTransitionsBuilder(),
+          TargetPlatform.linux: _SlideTransitionsBuilder(),
+          TargetPlatform.windows: _SlideTransitionsBuilder(),
+          TargetPlatform.fuchsia: _SlideTransitionsBuilder(),
+        },
+      ),
 
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.bg,
@@ -186,6 +219,29 @@ abstract final class AppTheme {
         primary: const Color(0xFF6B9EF8),
       ),
       textTheme: _textTheme(Brightness.dark),
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: _SlideTransitionsBuilder(),
+          TargetPlatform.iOS: _SlideTransitionsBuilder(),
+          TargetPlatform.macOS: _SlideTransitionsBuilder(),
+          TargetPlatform.linux: _SlideTransitionsBuilder(),
+          TargetPlatform.windows: _SlideTransitionsBuilder(),
+          TargetPlatform.fuchsia: _SlideTransitionsBuilder(),
+        },
+      ),
+      dialogTheme: DialogThemeData(
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titleTextStyle: GoogleFonts.ibmPlexSans(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFFECEFF4),
+        ),
+        contentTextStyle: GoogleFonts.ibmPlexSans(
+          fontSize: 15,
+          color: const Color(0xFFB0B8C8),
+        ),
+      ),
     );
   }
 }

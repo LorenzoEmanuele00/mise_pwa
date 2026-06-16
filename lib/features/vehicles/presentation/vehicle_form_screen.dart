@@ -74,7 +74,7 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
         }
       } else {
         final newId = await notifier.create(input);
-        if (mounted) context.go('/vehicles/$newId');
+        if (mounted) context.pushReplacement('/vehicles/$newId');
       }
     } catch (e) {
       if (mounted) {
@@ -101,7 +101,13 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
           body: Column(
             children: [
               GmTopBar(
-                  title: 'Modifica mezzo', onBack: () => context.pop()),
+                  title: 'Modifica mezzo', onBack: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/');
+                  }
+                }),
               const Expanded(
                   child: Center(
                       child: CircularProgressIndicator(color: AppColors.accent))),
@@ -118,7 +124,13 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
         children: [
           GmTopBar(
             title: widget.isEdit ? 'Modifica mezzo' : 'Nuovo mezzo',
-            onBack: () => context.pop(),
+            onBack: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/');
+                  }
+                },
           ),
           Expanded(
             child: typesAsync.when(
