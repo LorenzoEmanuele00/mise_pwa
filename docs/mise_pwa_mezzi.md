@@ -1,8 +1,8 @@
 # Vehicle Management App — Documento di Progetto
 
 > **Stato documento:** 🟢 Pronto per sviluppo
-> **Ultima modifica:** 2026-06-15
-> **Versione:** 0.4.0
+> **Ultima modifica:** 2026-06-16
+> **Versione:** 0.5.0
 > **Package Flutter:** `mise_pwa` (progetto già scaffoldato)
 
 ---
@@ -395,29 +395,29 @@ await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
 
 ## 8. Roadmap di Sviluppo
 
-### Fase 1 — Setup Progetto
+### Fase 1 — Setup Progetto ✅
 - [x] Progetto Flutter già creato (`mise_pwa`) — **non** rieseguire `flutter create`
-- [ ] `flutter pub add` delle dipendenze (Supabase, Riverpod, go_router, freezed…)
-- [ ] Configurazione Supabase (progetto, tabelle SQL, RLS, trigger) — vedi §9
-- [ ] Creazione account condiviso + disabilitazione signup pubblico
-- [ ] Inizializzazione `supabase_flutter` con `--dart-define`
-- [ ] Struttura cartelle feature-first
-- [ ] Tema Material 3 base (light + dark)
-- [ ] Navigazione base con go_router + `usePathUrlStrategy()`
+- [x] `flutter pub add` delle dipendenze (Supabase, Riverpod, go_router, freezed…)
+- [x] Configurazione Supabase (progetto, tabelle SQL, RLS, trigger) — vedi §9
+- [x] Creazione account condiviso + disabilitazione signup pubblico
+- [x] Inizializzazione `supabase_flutter` con `--dart-define`
+- [x] Struttura cartelle feature-first
+- [x] Tema Material 3 base (light + dark)
+- [x] Navigazione base con go_router + `usePathUrlStrategy()`
 
-### Fase 2 — Autenticazione
-- [ ] Schermata di login (email + password)
-- [ ] Persistenza sessione (auto-login alla riapertura — vedi limiti iOS §12)
-- [ ] Logout
-- [ ] Redirect guard go_router
+### Fase 2 — Autenticazione ✅
+- [x] Schermata di login (email + password)
+- [x] Persistenza sessione (auto-login alla riapertura — vedi limiti iOS §12)
+- [ ] Logout — `AuthRepository.signOut()` implementato; pulsante UI rinviato a Fase 5 (Settings)
+- [x] Redirect guard go_router
 
-### Fase 3 — Gestione Mezzi
-- [ ] Repository Supabase per `vehicles` e `vehicle_types`
-- [ ] Provider Riverpod per lista mezzi
-- [ ] Schermata lista mezzi (con skeleton loader)
-- [ ] Schermata dettaglio mezzo
-- [ ] Form creazione/modifica mezzo
-- [ ] Eliminazione mezzo con conferma
+### Fase 3 — Gestione Mezzi ✅
+- [x] Repository Supabase per `vehicles` e `vehicle_types`
+- [x] Provider Riverpod per lista mezzi
+- [x] Schermata lista mezzi (con skeleton loader)
+- [x] Schermata dettaglio mezzo
+- [x] Form creazione/modifica mezzo
+- [x] Eliminazione mezzo con conferma
 
 ### Fase 4 — Schede Manutenzione
 - [ ] Repository Supabase per `maintenance_records`
@@ -431,12 +431,12 @@ await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
 - [ ] Integrazione campi custom nel form (lettura/scrittura su `custom_fields` JSONB)
 - [ ] Gestione tipologie mezzo custom
 
-### Fase 6 — PWA e Layout Adattivo
-- [ ] Estrarre design token dai mockup in `docs/demo/` → tema in `lib/app/theme/`
-- [ ] Implementare le schermate seguendo i mockup di `docs/demo/` (fonte autorevole UI — §6)
+### Fase 6 — PWA e Layout Adattivo (parziale)
+- [x] Estrarre design token dai mockup in `docs/demo/` → tema in `lib/app/theme/`
+- [ ] Implementare le schermate seguendo i mockup di `docs/demo/` (fonte autorevole UI — §6) — parziale: screens Fase 1–3 completate; Fase 4–5 pending
 - [ ] Layout responsive: mobile / tablet / desktop
-- [ ] Configurazione manifest PWA
-- [ ] Icone PWA (192px, 512px, maskable)
+- [x] Configurazione manifest PWA
+- [x] Icone PWA (192px, 512px, maskable)
 
 ### Fase 7 — Deploy in Produzione (Firebase Hosting)
 - [ ] `firebase init hosting` (public = `build/web`, SPA rewrite)
@@ -448,7 +448,7 @@ await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
 
 ### Fase 8 — Ottimizzazioni (Post-MVP)
 - [ ] **Foto mezzi** via Supabase Storage (bucket + policy — vedi §11)
-- [ ] Cache offline avanzata con service worker
+- [ ] Cache offline avanzata con service worker --> won't do
 - [ ] Export PDF scheda manutenzione
 - [ ] Indicatori visivi scadenze (colori stato)
 
@@ -684,6 +684,18 @@ riverpod_generator
 ### 2026-06-15 — Sessione 3 (v0.3.0)
 - Autenticazione ripristinata come account condiviso unico; RLS per utenti autenticati;
   modello di distribuzione (l'URL è l'app); aggiunta Fase 2 (auth)
+
+### 2026-06-16 — Sessione 5 (v0.5.0) — Avanzamento implementazione
+- Aggiornata roadmap §8 con stato effettivo del codice (Fasi 1–3 completate)
+- **Fase 1** completata: dipendenze, Supabase (credenziali in `docs/SETUP_MANUALE.md`),
+  struttura feature-first, tema Material 3, go_router con `usePathUrlStrategy()`
+- **Fase 2** completata (meno logout UI): login screen, persistenza sessione, redirect guard;
+  `signOut()` implementato in `AuthRepository` ma pulsante UI sarà in Fase 5 (Settings)
+- **Fase 3** completata: `VehicleRepository`, `VehiclesNotifier`, `VehicleListScreen` (skeleton,
+  ricerca, filtri per tipo), `VehicleDetailScreen`, `VehicleFormScreen` (crea + modifica + elimina)
+- **Fase 6 parziale**: design token estratti in `AppColors`/`AppTheme`, PWA manifest e icone
+  presenti; layout responsive e screens Fase 4–5 ancora pending
+- Aggiunto `CLAUDE.md` alla radice del progetto per orientamento futuro di Claude Code
 
 ### 2026-06-15 — Sessione 4 (v0.4.0) — Revisione tecnica
 - **Host cambiato da Vercel a Firebase Hosting** (Flutter non si builda nativo su nessun host;
