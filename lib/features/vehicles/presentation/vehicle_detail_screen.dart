@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../app/theme/app_theme.dart';
+import '../../../features/maintenance/data/maintenance_providers.dart';
+import '../../../features/maintenance/domain/maintenance_field.dart';
+import '../../../features/maintenance/domain/maintenance_record.dart';
 import '../../../shared/widgets/gm_widgets.dart';
 import '../data/vehicle_providers.dart';
 import '../domain/vehicle.dart';
@@ -255,37 +258,7 @@ class _VehicleDetailView extends ConsumerWidget {
 
                   const SizedBox(height: 12),
 
-                  // Placeholder Fase 4
-                  GmCard(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: Column(
-                        children: [
-                          Icon(Icons.build_circle_outlined,
-                              size: 40, color: AppColors.text3),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Nessun intervento registrato',
-                            style: GoogleFonts.ibmPlexSans(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.text2,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Avvia la prima manutenzione con il pulsante qui sopra.',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.ibmPlexSans(
-                              fontSize: 13,
-                              color: AppColors.text3,
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  _MaintenanceSection(vehicle: vehicle),
                 ],
               ),
             ),
@@ -313,6 +286,263 @@ class _RetryButton extends StatelessWidget {
         child: Text('Riprova',
             style: GoogleFonts.ibmPlexSans(
                 color: AppColors.accent, fontWeight: FontWeight.w600)),
+      ),
+    );
+  }
+}
+
+// ── Maintenance section ───────────────────────────────────────
+class _MaintenanceSection extends ConsumerWidget {
+  final Vehicle vehicle;
+  const _MaintenanceSection({required this.vehicle});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recordsAsync = ref.watch(maintenanceRecordsProvider(vehicle.id));
+    // Field definitions (best-effort: use empty list if not yet loaded)
+    final allFields = ref.watch(maintenanceFieldsProvider).value ?? [];
+    final fields = fieldsForType(allFields, vehicle.typeId);
+
+    return recordsAsync.when(
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: CircularProgressIndicator(
+              strokeWidth: 2, color: AppColors.accent),
+        ),
+      ),
+      error: (e, _) => GmCard(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            'Impossibile caricare le schede: $e',
+            style: GoogleFonts.ibmPlexSans(
+                fontSize: 13, color: AppColors.text3),
+          ),
+        ),
+      ),
+      data: (records) {
+        if (records.isEmpty) {
+          return GmCard(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Column(
+                children: [
+                  const Icon(Icons.build_circle_outlined,
+                      size: 40, color: AppColors.text3),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Nessun intervento registrato',
+                    style: GoogleFonts.ibmPlexSans(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.text2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Avvia la prima manutenzione con il pulsante qui sopra.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.ibmPlexSans(
+                        fontSize: 13, color: AppColors.text3, height: 1.5),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        return Column(
+          children: records
+              .map((r) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _MaintenanceCard(
+                      record: r,
+                      fields: fields,
+                      onTap: () => context.push(
+                          '/vehicles/${vehicle.id}/maintenance/${r.id}'),
+                    ),
+                  ))
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+// ── Chip urgency status ───────────────────────────────────────
+enum _ChipStatus { bad, warn, neutral }
+
+// ── Maintenance list card ─────────────────────────────────────
+class _MaintenanceCard extends StatelessWidget {
+  final MaintenanceRecord record;
+  final List<MaintenanceField> fields;
+  final VoidCallback onTap;
+
+  const _MaintenanceCard({
+    required this.record,
+    required this.fields,
+    required this.onTap,
+  });
+
+  static String _fmtDate(DateTime d) {
+    const months = [
+      'gen', 'feb', 'mar', 'apr', 'mag', 'giu',
+      'lug', 'ago', 'set', 'ott', 'nov', 'dic',
+    ];
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
+  }
+
+  static String _fmtKm(int km) {
+    if (km >= 1000) {
+      return '${(km / 1000).toStringAsFixed(km % 1000 == 0 ? 0 : 1)} k km';
+    }
+    return '$km km';
+  }
+
+  static bool _isGood(String v) {
+    final l = v.toLowerCase().trim();
+    return l == 'ok' ||
+        l == 'in regola' ||
+        l == 'effettuato' ||
+        l == 'effettuata' ||
+        l == 'non applicabile';
+  }
+
+  static bool _isBad(String v) {
+    final l = v.toLowerCase();
+    return l.contains('scadut') ||
+        l.contains('guasto') ||
+        l.contains('carica bassa');
+  }
+
+  static bool _isWarn(String v) {
+    final l = v.toLowerCase();
+    return l.contains('in scadenza') ||
+        l.contains('da fare') ||
+        l.contains('da sostituire') ||
+        l.contains('da verificare') ||
+        l.contains('da cambiare') ||
+        l.contains('usura');
+  }
+
+  static String _fmtExpiryDate(DateTime d) {
+    const months = [
+      'gen', 'feb', 'mar', 'apr', 'mag', 'giu',
+      'lug', 'ago', 'set', 'ott', 'nov', 'dic',
+    ];
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
+  }
+
+  List<(String, String, _ChipStatus)> _notableFields() {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final result = <(String, String, _ChipStatus)>[];
+
+    for (final f in fields) {
+      if (f.tracksExpiry && f.options.isEmpty) {
+        // Pure date field: status computed from expiry date
+        final exp = record.expiry(f.fieldKey);
+        if (exp == null) continue;
+        final expDate = DateTime(exp.year, exp.month, exp.day);
+        final diff = expDate.difference(todayDate).inDays;
+        if (diff > 30) continue; // effettuata → good, skip
+        final status = diff < 0 ? _ChipStatus.bad : _ChipStatus.warn;
+        final statusLabel = diff < 0 ? 'Scaduta' : 'In scadenza';
+        result.add((f.label, '$statusLabel · ${_fmtExpiryDate(exp)}', status));
+        continue;
+      }
+
+      // Standard dropdown/text field
+      final value = record.value(f.fieldKey);
+      if (value == null || value.isEmpty || _isGood(value)) continue;
+      final status = _isBad(value)
+          ? _ChipStatus.bad
+          : (_isWarn(value) ? _ChipStatus.warn : _ChipStatus.neutral);
+      String label = value;
+      if (f.tracksExpiry) {
+        final exp = record.expiry(f.fieldKey);
+        if (exp != null) label = '$value · ${_fmtExpiryDate(exp)}';
+      }
+      result.add((f.label, label, status));
+    }
+    return result;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final notable = _notableFields();
+    return GmCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.calendar_today_rounded,
+                  size: 13, color: AppColors.text3),
+              const SizedBox(width: 5),
+              Text(
+                _fmtDate(record.date),
+                style: GoogleFonts.ibmPlexMono(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.text2),
+              ),
+              const Spacer(),
+              if (record.km != null)
+                Text(
+                  _fmtKm(record.km!),
+                  style: GoogleFonts.ibmPlexMono(
+                      fontSize: 13, color: AppColors.text3),
+                ),
+              const SizedBox(width: 6),
+              const Icon(Icons.chevron_right_rounded,
+                  size: 18, color: AppColors.text3),
+            ],
+          ),
+          if (notable.isNotEmpty) ...[
+            const SizedBox(height: 9),
+            Wrap(
+              spacing: 6,
+              runSpacing: 5,
+              children: notable.map((f) {
+                final (label, value, status) = f;
+                final (fg, bg) = switch (status) {
+                  _ChipStatus.bad => (AppColors.badFg, AppColors.badBg),
+                  _ChipStatus.warn => (AppColors.warnFg, AppColors.warnBg),
+                  _ChipStatus.neutral =>
+                    (AppColors.text2, AppColors.surface2),
+                };
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Text(
+                    '$label: $value',
+                    style: GoogleFonts.ibmPlexSans(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: fg),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+          if (record.notes?.isNotEmpty == true) ...[
+            const SizedBox(height: 8),
+            Text(
+              record.notes!,
+              style: GoogleFonts.ibmPlexSans(
+                  fontSize: 13, color: AppColors.text3),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ],
       ),
     );
   }

@@ -61,7 +61,7 @@ class _VehicleListScreenState extends ConsumerState<VehicleListScreen> {
                 GmCircleButton(
                   icon: const Icon(Icons.settings_outlined,
                       size: 19, color: AppColors.text2),
-                  onTap: () => context.go(AppRoutes.settings),
+                  onTap: () => context.push(AppRoutes.settings),
                 ),
                 const SizedBox(width: 8),
                 GmCircleButton(

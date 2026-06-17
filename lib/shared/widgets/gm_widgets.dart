@@ -512,6 +512,54 @@ class GmFooterBar extends StatelessWidget {
   }
 }
 
+// ── GmField ───────────────────────────────────────────────────
+/// Label + content wrapper for form fields.
+class GmField extends StatelessWidget {
+  final String label;
+  final bool required;
+  final Widget child;
+
+  const GmField({
+    super.key,
+    required this.label,
+    required this.child,
+    this.required = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.ibmPlexSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.text2,
+                letterSpacing: 0.1,
+              ),
+            ),
+            if (required)
+              Text(
+                ' *',
+                style: GoogleFonts.ibmPlexSans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFC0362C),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 7),
+        child,
+      ],
+    );
+  }
+}
+
 // ── GmPrimaryButton ───────────────────────────────────────────
 class GmPrimaryButton extends StatelessWidget {
   final String label;

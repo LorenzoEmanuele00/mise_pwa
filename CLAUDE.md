@@ -63,10 +63,13 @@ lib/
 │   │   ├── data/                # VehicleRepository + Riverpod providers
 │   │   ├── domain/vehicle.dart  # Vehicle, VehicleType, CreateVehicleInput (hand-written, no freezed)
 │   │   └── presentation/        # VehicleListScreen, VehicleDetailScreen, VehicleFormScreen
-│   ├── maintenance/             # Phase 4 — stub only (placeholder Scaffold)
-│   └── settings/                # Phase 5 — stub only
+│   ├── maintenance/             # Phase 4 — implemented (data-driven fields)
+│   │   ├── data/                # MaintenanceRepository, MaintenanceFieldRepository, providers
+│   │   ├── domain/              # MaintenanceRecord, MaintenanceField, CreateMaintenanceInput
+│   │   └── presentation/        # MaintenanceFormScreen (new + edit)
+│   └── settings/                # Phase 5 — implementata
 ├── shared/
-│   └── widgets/gm_widgets.dart  # Design-system widgets (GmTopBar, GmCard, GmChip, etc.)
+│   └── widgets/gm_widgets.dart  # Design-system widgets (GmTopBar, GmCard, GmChip, GmField, etc.)
 └── services/
     └── supabase_service.dart    # `supabase` getter — use this everywhere instead of Supabase.instance.client
 ```
@@ -101,9 +104,15 @@ Fetch vehicles with joined type: `.select('*, vehicle_types(*)')` — the JSON k
 
 ### Database schema (Supabase / PostgreSQL)
 
-Four tables: `vehicle_types`, `vehicles`, `maintenance_records`, `custom_maintenance_fields`. All have RLS enabled with a single `authenticated_all` policy (`TO authenticated USING (true) WITH CHECK (true)`). `vehicles` cascades deletes to `maintenance_records`; `vehicle_types` uses `ON DELETE RESTRICT`.
+Four tables: `vehicle_types`, `vehicles`, `maintenance_records`, `maintenance_fields`. All have RLS enabled with a single `authenticated_all` policy (`TO authenticated USING (true) WITH CHECK (true)`). `vehicles` cascades deletes to `maintenance_records`; `vehicle_types` uses `ON DELETE RESTRICT`.
 
-Custom maintenance fields store values in a `JSONB custom_fields` column on `maintenance_records`.
+**Maintenance fields are data-driven**: `maintenance_fields` defines all status fields (field_key, label, field_type, options JSONB, type_id FK to vehicle_types — NULL = global, sort_order, active, **tracks_expiry**). Field values are stored in `maintenance_records.custom_fields` (JSONB). To hide a field: set `active=false`. To scope a field to a vehicle type: set `type_id`. Manage via the Supabase dashboard (UI in-app in Phase 5).
+
+**Expiry dates** (`tracks_expiry = true`): when a field has this flag, the form shows an optional date-picker "Da effettuare entro". The date is stored in `custom_fields` under key `{field_key}_scadenza` (ISO `YYYY-MM-DD`). Enabled by default for `revisione`, `assicurazione`, `distribuzione`. Use `MaintenanceRecord.expiryKey(fieldKey)` and `record.expiry(fieldKey)` to access expiry dates in code.
+
+`vehicle_types.abbreviation` can be set in the DB to override the default abbreviation badge (e.g. AMB, ATT).
+
+**Date picker**: do NOT pass `locale:` to `showDatePicker` — `flutter_localizations` is not configured and it would crash. The picker inherits the browser locale automatically.
 
 ### Responsive layout targets (Phase 6)
 
@@ -116,8 +125,8 @@ Custom maintenance fields store values in a `JSONB custom_fields` column on `mai
 ### Development phases
 
 - **Phases 1–3** (setup, auth, vehicles): implemented.
-- **Phase 4** (maintenance records): route stubs exist, implementation pending.
-- **Phase 5** (settings + custom fields): stub only.
+- **Phase 4** (maintenance records): implemented with data-driven fields from `maintenance_fields` table.
+- **Phase 5** (settings UI — CRUD for maintenance_fields and vehicle_types in-app): implemented. `SettingsScreen` hub → `MaintenanceFieldsScreen`/`MaintenanceFieldFormScreen` (full schema: label, type, options, scope, active, tracks_expiry, sort_order) + `VehicleTypesScreen`/`VehicleTypeFormScreen` (custom types CRUD, RESTRICT guard) + logout button. `allMaintenanceFieldsProvider` (AsyncNotifier) for Settings; `maintenanceFieldsProvider` (active-only FutureProvider) still used by maintenance form.
 - **Phase 6** (responsive layout + PWA polish): pending.
 - **Phase 7** (Firebase CI/CD): pending.
 - **Photos** (`vehicles.photo_url`): column exists in schema, upload deferred post-MVP.
