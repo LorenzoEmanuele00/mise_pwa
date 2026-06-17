@@ -1,12 +1,18 @@
+import 'dart:convert';
+import 'dart:js_interop';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:web/web.dart' as web;
 
 import '../../../app/theme/app_theme.dart';
 import '../../../features/maintenance/data/maintenance_providers.dart';
 import '../../../features/maintenance/domain/maintenance_field.dart';
 import '../../../features/maintenance/domain/maintenance_record.dart';
+import '../../../shared/utils/csv_export.dart';
 import '../../../shared/widgets/gm_widgets.dart';
 import '../data/vehicle_providers.dart';
 import '../domain/vehicle.dart';
@@ -113,6 +119,45 @@ class _VehicleDetailView extends ConsumerWidget {
     }
   }
 
+  Future<void> _exportCsv(BuildContext context, WidgetRef ref) async {
+    try {
+      final records =
+          await ref.read(maintenanceRecordsProvider(vehicle.id).future);
+      if (records.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Nessuna manutenzione da esportare')),
+          );
+        }
+        return;
+      }
+      final allFields = await ref.read(allMaintenanceFieldsProvider.future);
+      final fields = fieldsForType(allFields, vehicle.typeId);
+      final csv = buildMaintenanceCsv(
+        vehicle: vehicle,
+        records: records,
+        fields: fields,
+      );
+      final filename = csvFilename(vehicle);
+      _triggerCsvDownload(filename, csv);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('CSV scaricato: $filename')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Errore durante l'esportazione: $e"),
+            backgroundColor: AppColors.badFg,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
@@ -144,6 +189,14 @@ class _VehicleDetailView extends ConsumerWidget {
                         color: AppColors.accent,
                       ),
                     ),
+                  ),
+                ),
+                GmTappable(
+                  onTap: () => _exportCsv(context, ref),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    child: Icon(Icons.download_outlined,
+                        color: AppColors.accent, size: 22),
                   ),
                 ),
                 GmTappable(
@@ -546,4 +599,22 @@ class _MaintenanceCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Download CSV via Web API ──────────────────────────────────
+/// Avvia il download del file CSV nel browser.
+void _triggerCsvDownload(String filename, String content) {
+  final encoded = Uint8List.fromList(utf8.encode(content));
+  final blob = web.Blob(
+    <JSAny>[encoded.toJS].toJS,
+    web.BlobPropertyBag(type: 'text/csv;charset=utf-8'),
+  );
+  final url = web.URL.createObjectURL(blob);
+  final anchor = web.document.createElement('a') as web.HTMLAnchorElement
+    ..href = url
+    ..download = filename;
+  web.document.body!.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  web.URL.revokeObjectURL(url);
 }
