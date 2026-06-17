@@ -112,3 +112,41 @@ class CreateVehicleInput {
         'notes': notes?.trim().isEmpty == true ? null : notes?.trim(),
       };
 }
+
+// ── Input class per create vehicle types ──────────────────────
+class CreateVehicleTypeInput {
+  final String code;
+  final String label;
+  final bool isCustom;
+  final String? abbreviation;
+
+  const CreateVehicleTypeInput({
+    required this.code,
+    required this.label,
+    required this.isCustom,
+    this.abbreviation,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'code': code,
+        'label': label,
+        'is_custom': isCustom,
+        'abbreviation':
+            abbreviation?.trim().isEmpty == true ? null : abbreviation?.trim(),
+      };
+
+  /// Genera un code valido (snake_case, solo a-z0-9_) da un'etichetta.
+  /// Il code è UNIQUE a DB e non va mai cambiato dopo la creazione.
+  static String labelToCode(String label) {
+    return label
+        .toLowerCase()
+        .replaceAll(RegExp(r'[àáâãä]'), 'a')
+        .replaceAll(RegExp(r'[èéêë]'), 'e')
+        .replaceAll(RegExp(r'[ìíîï]'), 'i')
+        .replaceAll(RegExp(r'[òóôõö]'), 'o')
+        .replaceAll(RegExp(r'[ùúûü]'), 'u')
+        .replaceAll(RegExp(r'[^a-z0-9]'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+  }
+}

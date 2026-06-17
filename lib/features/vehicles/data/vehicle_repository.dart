@@ -44,4 +44,33 @@ class VehicleRepository {
   Future<void> deleteVehicle(String id) async {
     await supabase.from('vehicles').delete().eq('id', id);
   }
+
+  // ── Vehicle types CRUD (per Settings) ────────────────────────
+
+  Future<String> createVehicleType(CreateVehicleTypeInput input) async {
+    final data = await supabase
+        .from('vehicle_types')
+        .insert(input.toJson())
+        .select('id')
+        .single();
+    return data['id'] as String;
+  }
+
+  /// Aggiorna solo label e abbreviation (code e is_custom non sono modificabili).
+  Future<void> updateVehicleType(
+    String id, {
+    required String label,
+    String? abbreviation,
+  }) async {
+    await supabase.from('vehicle_types').update({
+      'label': label,
+      'abbreviation': abbreviation?.trim().isEmpty == true ? null : abbreviation?.trim(),
+    }).eq('id', id);
+  }
+
+  /// ⚠️ vehicle_types usa ON DELETE RESTRICT: fallisce se ci sono veicoli
+  /// associati. Catturare PostgrestException con code '23503' nel caller.
+  Future<void> deleteVehicleType(String id) async {
+    await supabase.from('vehicle_types').delete().eq('id', id);
+  }
 }

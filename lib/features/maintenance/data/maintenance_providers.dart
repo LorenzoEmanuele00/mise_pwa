@@ -13,10 +13,42 @@ final maintenanceFieldRepositoryProvider =
     Provider<MaintenanceFieldRepository>((_) => MaintenanceFieldRepository());
 
 // ── Field definitions (all active, ordered by sort_order) ─────
+// Usato dal form manutenzione. Mostra solo i campi active = true.
 final maintenanceFieldsProvider =
     FutureProvider<List<MaintenanceField>>((ref) {
   return ref.read(maintenanceFieldRepositoryProvider).fetchFields();
 });
+
+// ── All fields (inclusi disattivati) — per la UI Impostazioni ─
+class MaintenanceFieldsNotifier
+    extends AsyncNotifier<List<MaintenanceField>> {
+  @override
+  Future<List<MaintenanceField>> build() {
+    return ref.read(maintenanceFieldRepositoryProvider).fetchAllFields();
+  }
+
+  Future<void> create(CreateMaintenanceFieldInput input) async {
+    await ref.read(maintenanceFieldRepositoryProvider).createField(input);
+    ref.invalidateSelf();
+    ref.invalidate(maintenanceFieldsProvider);
+  }
+
+  Future<void> save(String id, CreateMaintenanceFieldInput input) async {
+    await ref.read(maintenanceFieldRepositoryProvider).updateField(id, input);
+    ref.invalidateSelf();
+    ref.invalidate(maintenanceFieldsProvider);
+  }
+
+  Future<void> delete(String id) async {
+    await ref.read(maintenanceFieldRepositoryProvider).deleteField(id);
+    ref.invalidateSelf();
+    ref.invalidate(maintenanceFieldsProvider);
+  }
+}
+
+final allMaintenanceFieldsProvider =
+    AsyncNotifierProvider<MaintenanceFieldsNotifier, List<MaintenanceField>>(
+        MaintenanceFieldsNotifier.new);
 
 // ── Records for a vehicle (ordered by date DESC) ─────────────
 final maintenanceRecordsProvider =

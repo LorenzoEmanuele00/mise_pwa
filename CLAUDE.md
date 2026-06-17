@@ -67,7 +67,7 @@ lib/
 │   │   ├── data/                # MaintenanceRepository, MaintenanceFieldRepository, providers
 │   │   ├── domain/              # MaintenanceRecord, MaintenanceField, CreateMaintenanceInput
 │   │   └── presentation/        # MaintenanceFormScreen (new + edit)
-│   └── settings/                # Phase 5 — stub only
+│   └── settings/                # Phase 5 — implementata
 ├── shared/
 │   └── widgets/gm_widgets.dart  # Design-system widgets (GmTopBar, GmCard, GmChip, GmField, etc.)
 └── services/
@@ -126,7 +126,7 @@ Four tables: `vehicle_types`, `vehicles`, `maintenance_records`, `maintenance_fi
 
 - **Phases 1–3** (setup, auth, vehicles): implemented.
 - **Phase 4** (maintenance records): implemented with data-driven fields from `maintenance_fields` table.
-- **Phase 5** (settings UI — CRUD for maintenance_fields in-app): stub only. Fields managed via Supabase dashboard in the meantime.
+- **Phase 5** (settings UI — CRUD for maintenance_fields and vehicle_types in-app): implemented. `SettingsScreen` hub → `MaintenanceFieldsScreen`/`MaintenanceFieldFormScreen` (full schema: label, type, options, scope, active, tracks_expiry, sort_order) + `VehicleTypesScreen`/`VehicleTypeFormScreen` (custom types CRUD, RESTRICT guard) + logout button. `allMaintenanceFieldsProvider` (AsyncNotifier) for Settings; `maintenanceFieldsProvider` (active-only FutureProvider) still used by maintenance form.
 - **Phase 6** (responsive layout + PWA polish): pending.
 - **Phase 7** (Firebase CI/CD): pending.
 - **Photos** (`vehicles.photo_url`): column exists in schema, upload deferred post-MVP.
