@@ -356,10 +356,16 @@ await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
 - [x] Creazione / modifica / eliminazione scheda
 - [x] Campi a DB (`maintenance_fields`): scoped per tipo mezzo, attivabili/disabilitabili, con data scadenza opzionale (`tracks_expiry`)
 
-### Fase 5 — Impostazioni e Campi Custom
-- [ ] Schermata impostazioni
-- [ ] CRUD `maintenance_fields` in-app (oggi gestiti da dashboard Supabase — vedi `SETUP_MANUALE.md §A.2c`)
-- [ ] Gestione tipologie mezzo custom
+### Fase 5 — Impostazioni e Campi Custom ✅
+- [x] Schermata impostazioni (hub con Campi manutenzione, Tipi di mezzo, Logout)
+- [x] CRUD `maintenance_fields` in-app — `MaintenanceFieldsScreen` + `MaintenanceFieldFormScreen`
+  - Schema completo: label, tipo, opzioni, scope per tipo, `active`, `tracks_expiry`, `sort_order`
+  - `field_key` auto-generato dalla label e bloccato in modifica (è la chiave nei JSONB storici)
+  - `allMaintenanceFieldsProvider` (AsyncNotifier) per la UI Settings; `maintenanceFieldsProvider` invariato per il form manutenzione
+- [x] Gestione tipologie mezzo custom — `VehicleTypesScreen` + `VehicleTypeFormScreen`
+  - CRUD per `is_custom = true`; tipi predefiniti modificabili (label/abbreviazione) ma non eliminabili
+  - Guard su `ON DELETE RESTRICT`: snackbar chiara se si tenta di eliminare un tipo con mezzi associati
+- [x] Pulsante logout UI (orfano Fase 2) — in `SettingsScreen`, con dialog di conferma
 
 ### Fase 6 — PWA e Layout Adattivo (parziale)
 - [x] Estrarre design token dai mockup in `docs/demo/` → tema in `lib/app/theme/`
