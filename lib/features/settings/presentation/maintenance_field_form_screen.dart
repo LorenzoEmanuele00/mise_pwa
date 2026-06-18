@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../app/router.dart';
 import '../../../app/theme/app_theme.dart';
@@ -37,6 +38,7 @@ class _MaintenanceFieldFormScreenState
   bool _active = true;
   bool _loading = false;
   bool _initialized = false;
+  String? _initError; // C2: set se il campo non viene trovato nel caricamento
   String? _existingFieldKey; // solo in edit mode
 
   @override
@@ -54,9 +56,20 @@ class _MaintenanceFieldFormScreenState
           final fields =
               await ref.read(allMaintenanceFieldsProvider.future);
           if (!mounted) return;
-          _initFromField(
-              fields.firstWhere((f) => f.id == widget.fieldId!));
-        } catch (_) {}
+          // C2: firstWhere senza orElse lancia StateError su id obsoleto;
+          // usiamo firstOrNull e mostriamo un errore invece di uno spinner
+          // infinito ingoiato dal catch.
+          final match =
+              fields.where((f) => f.id == widget.fieldId!).firstOrNull;
+          if (match == null) {
+            setState(() => _initError = 'Campo non trovato (id obsoleto?)');
+            return;
+          }
+          _initFromField(match);
+        } catch (e) {
+          if (!mounted) return;
+          setState(() => _initError = 'Errore di caricamento: $e');
+        }
       });
     }
   }
@@ -230,13 +243,55 @@ class _MaintenanceFieldFormScreenState
     }
   }
 
+  // M6: usa PostgrestException tipizzata invece di string matching su e.toString()
   String _friendlyError(Object e) {
-    final msg = e.toString();
-    if (msg.contains('23505') || msg.contains('unique')) {
-      return 'Chiave già esistente — scegli un nome diverso';
+    if (e is PostgrestException) {
+      if (e.code == '23505') return 'Chiave già esistente — scegli un nome diverso';
+      return 'Errore database: ${e.message}';
     }
     return 'Errore: $e';
   }
+
+  Scaffold _buildErrorScaffold(String message) => Scaffold(
+        backgroundColor: AppColors.bg,
+        body: Column(
+          children: [
+            GmTopBar(
+              title: 'Modifica campo',
+              onBack: () => context.canPop()
+                  ? context.pop()
+                  : context.go(AppRoutes.settingsFields),
+            ),
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error_outline_rounded,
+                          size: 48, color: AppColors.text3),
+                      const SizedBox(height: 16),
+                      Text(
+                        message,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.ibmPlexSans(color: AppColors.text2),
+                      ),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: () => context.canPop()
+                            ? context.pop()
+                            : context.go(AppRoutes.settingsFields),
+                        child: const Text('Torna indietro'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 
   Scaffold _buildLoadingScaffold(String title) => Scaffold(
         backgroundColor: AppColors.bg,
@@ -264,6 +319,8 @@ class _MaintenanceFieldFormScreenState
     // ha completato e chiamato setState. Questo garantisce che i valori
     // del form siano corretti al primo render.
     if (widget.isEdit && !_initialized) {
+      // C2: mostra errore esplicito invece di spinner infinito se l'id non esiste
+      if (_initError != null) return _buildErrorScaffold(_initError!);
       return _buildLoadingScaffold('Modifica campo');
     }
 

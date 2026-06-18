@@ -1,6 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'theme/app_theme.dart';
 
 import '../features/auth/presentation/login_screen.dart';
 import '../features/maintenance/presentation/maintenance_form_screen.dart';
@@ -28,9 +33,32 @@ abstract final class AppRoutes {
   static const settingsTypeNew = '/settings/types/new';
 }
 
+/// Adatta uno [Stream] auth come [Listenable] per [GoRouter.refreshListenable].
+/// Ogni evento auth (login, logout, token refresh) fa ri-eseguire il redirect
+/// della guardia, così la UI risponde alla scadenza della sessione anche senza
+/// navigazione manuale.
+class GoRouterRefreshStream extends ChangeNotifier {
+  GoRouterRefreshStream(Stream<dynamic> stream) {
+    _subscription = stream.listen((_) => notifyListeners());
+  }
+
+  late final StreamSubscription<dynamic> _subscription;
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}
+
 // Static name for vehicles root (to avoid ambiguity with vehicleNew)
 final appRouter = GoRouter(
   initialLocation: AppRoutes.home,
+  // C1: aggancia il redirect allo stream auth di Supabase, così la guardia
+  // viene rivalutata automaticamente a login, logout e scadenza token.
+  refreshListenable: GoRouterRefreshStream(
+    Supabase.instance.client.auth.onAuthStateChange,
+  ),
   redirect: (BuildContext context, GoRouterState state) {
     final session = Supabase.instance.client.auth.currentSession;
     final onLogin = state.matchedLocation == AppRoutes.login;
@@ -39,6 +67,9 @@ final appRouter = GoRouter(
     if (session != null && onLogin) return AppRoutes.home;
     return null;
   },
+  // M4: URL non riconosciuti (es. deep-link obsoleti) mostrano una schermata
+  // di errore invece della schermata rossa di default di go_router.
+  errorBuilder: (context, state) => const _NotFoundScreen(),
   routes: [
     GoRoute(
       path: AppRoutes.login,
@@ -123,3 +154,61 @@ final appRouter = GoRouter(
     ),
   ],
 );
+
+/// Schermata mostrata per URL non riconosciuti dal router.
+/// Con il rewrite Firebase `** → /index.html`, qualunque path sconosciuto
+/// avvia l'app e termina qui invece che nella schermata rossa di go_router.
+class _NotFoundScreen extends StatelessWidget {
+  const _NotFoundScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    // Mostra il path che non è stato trovato, utile per debug
+    final path = GoRouterState.of(context).uri.path;
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.search_off_rounded,
+                    size: 52, color: AppColors.text3),
+                const SizedBox(height: 20),
+                Text(
+                  'Pagina non trovata',
+                  style: GoogleFonts.ibmPlexSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.text2,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  path,
+                  style: GoogleFonts.ibmPlexMono(
+                    fontSize: 13,
+                    color: AppColors.text3,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.accent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                  ),
+                  onPressed: () => context.go(AppRoutes.home),
+                  child: const Text('Torna alla lista mezzi'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

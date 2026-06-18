@@ -35,8 +35,10 @@ class MaintenanceRecord {
         updatedAt: DateTime.parse(json['updated_at'] as String),
       );
 
-  /// Legge il valore di un campo dinamico dal JSONB.
-  String? value(String fieldKey) => customFields[fieldKey] as String?;
+  /// Legge il valore di un campo dinamico dal JSONB come stringa.
+  /// Usa toString() invece di un cast diretto: il JSONB è libero e un valore
+  /// numerico inserito via SQL causerebbe _TypeError con `as String?`.
+  String? value(String fieldKey) => customFields[fieldKey]?.toString();
 
   /// Chiave nel JSONB dove viene salvata la data di scadenza di un campo.
   static String expiryKey(String fieldKey) => '${fieldKey}_scadenza';
