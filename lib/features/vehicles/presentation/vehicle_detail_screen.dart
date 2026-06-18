@@ -177,35 +177,22 @@ class _VehicleDetailView extends ConsumerWidget {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                GmTappable(
+                _TopBarIconButton(
                   onTap: () => context.push('/vehicles/${vehicle.id}/edit'),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    child: Text(
-                      'Modifica',
-                      style: GoogleFonts.ibmPlexSans(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.accent,
-                      ),
-                    ),
-                  ),
+                  icon: Icons.edit_outlined,
+                  color: AppColors.accent,
                 ),
-                GmTappable(
+                const SizedBox(width: 8),
+                _TopBarIconButton(
                   onTap: () => _exportCsv(context, ref),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    child: Icon(Icons.download_outlined,
-                        color: AppColors.accent, size: 22),
-                  ),
+                  icon: Icons.download_outlined,
+                  color: AppColors.accent,
                 ),
-                GmTappable(
+                const SizedBox(width: 8),
+                _TopBarIconButton(
                   onTap: () => _confirmDelete(context, ref),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    child: Icon(Icons.delete_outline_rounded,
-                        color: AppColors.badFg, size: 22),
-                  ),
+                  icon: Icons.delete_outline_rounded,
+                  color: AppColors.badFg,
                 ),
               ],
             ),
@@ -339,6 +326,33 @@ class _RetryButton extends StatelessWidget {
         child: Text('Riprova',
             style: GoogleFonts.ibmPlexSans(
                 color: AppColors.accent, fontWeight: FontWeight.w600)),
+      ),
+    );
+  }
+}
+
+class _TopBarIconButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final IconData icon;
+  final Color color;
+
+  const _TopBarIconButton({
+    required this.onTap,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GmTappable(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.border, width: 1.5),
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Icon(icon, color: color, size: 18),
       ),
     );
   }
