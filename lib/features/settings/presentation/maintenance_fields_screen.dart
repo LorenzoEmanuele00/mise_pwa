@@ -30,7 +30,7 @@ class MaintenanceFieldsScreen extends ConsumerWidget {
                 : context.go(AppRoutes.settings),
             trailing: GmCircleButton(
               icon: const Icon(Icons.add, size: 22, color: Colors.white),
-              onTap: () => context.push(AppRoutes.settingsFieldNew),
+              onTap: () => context.go(AppRoutes.settingsFieldNew),
               background: AppColors.accent,
               border: AppColors.accent,
             ),
@@ -138,7 +138,7 @@ class MaintenanceFieldsScreen extends ConsumerWidget {
                           field: e.value,
                           isLast: e.key == byType[type.id]!.length - 1,
                           onTap: () =>
-                              context.push('/settings/fields/${e.value.id}'),
+                              context.go('/settings/fields/${e.value.id}'),
                         ))
                     .toList(),
               ),

@@ -27,7 +27,7 @@ class VehicleTypesScreen extends ConsumerWidget {
                 : context.go(AppRoutes.settings),
             trailing: GmCircleButton(
               icon: const Icon(Icons.add, size: 22, color: Colors.white),
-              onTap: () => context.push(AppRoutes.settingsTypeNew),
+              onTap: () => context.go(AppRoutes.settingsTypeNew),
               background: AppColors.accent,
               border: AppColors.accent,
             ),
@@ -69,7 +69,7 @@ class VehicleTypesScreen extends ConsumerWidget {
                         type: e.value,
                         isLast: e.key == standard.length - 1,
                         onTap: () =>
-                            context.push('/settings/types/${e.value.id}'),
+                            context.go('/settings/types/${e.value.id}'),
                       ))
                   .toList(),
             ),
@@ -99,7 +99,7 @@ class VehicleTypesScreen extends ConsumerWidget {
                             type: e.value,
                             isLast: e.key == custom.length - 1,
                             onTap: () =>
-                                context.push('/settings/types/${e.value.id}'),
+                                context.go('/settings/types/${e.value.id}'),
                           ))
                       .toList(),
                 ),

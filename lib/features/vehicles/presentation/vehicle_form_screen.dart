@@ -96,7 +96,7 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
         }
       } else {
         final newId = await notifier.create(input);
-        if (mounted) context.pushReplacement('/vehicles/$newId');
+        if (mounted) context.go('/vehicles/$newId');
       }
     } catch (e) {
       if (mounted) {

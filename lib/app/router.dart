@@ -51,7 +51,9 @@ class GoRouterRefreshStream extends ChangeNotifier {
   }
 }
 
-// Static name for vehicles root (to avoid ambiguity with vehicleNew)
+// Nesting all routes under '/' ensures context.go() rebuilds the correct
+// Flutter navigator stack (canPop() works) and avoids adding multiple
+// browser history entries — which caused the double-snap on iOS swipe-back.
 final appRouter = GoRouter(
   initialLocation: AppRoutes.home,
   // C1: aggancia il redirect allo stream auth di Supabase, così la guardia
@@ -78,75 +80,76 @@ final appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.home,
       builder: (_, _) => const VehicleListScreen(),
-    ),
-    // NOTE: vehicleNew MUST come before vehicleDetail so '/vehicles/new'
-    // is not matched as id='new'
-    GoRoute(
-      path: AppRoutes.vehicleNew,
-      builder: (_, _) => const VehicleFormScreen(),
-    ),
-    GoRoute(
-      path: AppRoutes.vehicleDetail,
-      builder: (_, state) =>
-          VehicleDetailScreen(vehicleId: state.pathParameters['id']!),
       routes: [
+        // NOTE: 'vehicles/new' MUST come before 'vehicles/:id' so
+        // '/vehicles/new' is not matched as id='new'
         GoRoute(
-          path: 'edit',
+          path: 'vehicles/new',
+          builder: (_, _) => const VehicleFormScreen(),
+        ),
+        GoRoute(
+          path: 'vehicles/:id',
           builder: (_, state) =>
-              VehicleFormScreen(vehicleId: state.pathParameters['id']!),
-        ),
-        // NOTE: maintenance/new MUST come before maintenance/:rid
-        GoRoute(
-          path: 'maintenance/new',
-          builder: (_, state) => MaintenanceFormScreen(
-            vehicleId: state.pathParameters['id']!,
-          ),
-        ),
-        GoRoute(
-          path: 'maintenance/:rid',
-          builder: (_, state) => MaintenanceFormScreen(
-            vehicleId: state.pathParameters['id']!,
-            recordId: state.pathParameters['rid']!,
-          ),
-        ),
-      ],
-    ),
-    GoRoute(
-      path: AppRoutes.settings,
-      builder: (_, _) => const SettingsScreen(),
-      routes: [
-        GoRoute(
-          path: 'fields',
-          builder: (_, _) => const MaintenanceFieldsScreen(),
+              VehicleDetailScreen(vehicleId: state.pathParameters['id']!),
           routes: [
-            // NOTE: 'new' MUST come before ':fid' to avoid 'new' being
-            // parsed as a field id.
             GoRoute(
-              path: 'new',
-              builder: (_, _) => const MaintenanceFieldFormScreen(),
+              path: 'edit',
+              builder: (_, state) =>
+                  VehicleFormScreen(vehicleId: state.pathParameters['id']!),
+            ),
+            // NOTE: 'maintenance/new' MUST come before 'maintenance/:rid'
+            GoRoute(
+              path: 'maintenance/new',
+              builder: (_, state) => MaintenanceFormScreen(
+                vehicleId: state.pathParameters['id']!,
+              ),
             ),
             GoRoute(
-              path: ':fid',
-              builder: (_, state) => MaintenanceFieldFormScreen(
-                fieldId: state.pathParameters['fid']!,
+              path: 'maintenance/:rid',
+              builder: (_, state) => MaintenanceFormScreen(
+                vehicleId: state.pathParameters['id']!,
+                recordId: state.pathParameters['rid']!,
               ),
             ),
           ],
         ),
         GoRoute(
-          path: 'types',
-          builder: (_, _) => const VehicleTypesScreen(),
+          path: 'settings',
+          builder: (_, _) => const SettingsScreen(),
           routes: [
-            // NOTE: 'new' MUST come before ':tid'.
             GoRoute(
-              path: 'new',
-              builder: (_, _) => const VehicleTypeFormScreen(),
+              path: 'fields',
+              builder: (_, _) => const MaintenanceFieldsScreen(),
+              routes: [
+                // NOTE: 'new' MUST come before ':fid'
+                GoRoute(
+                  path: 'new',
+                  builder: (_, _) => const MaintenanceFieldFormScreen(),
+                ),
+                GoRoute(
+                  path: ':fid',
+                  builder: (_, state) => MaintenanceFieldFormScreen(
+                    fieldId: state.pathParameters['fid']!,
+                  ),
+                ),
+              ],
             ),
             GoRoute(
-              path: ':tid',
-              builder: (_, state) => VehicleTypeFormScreen(
-                typeId: state.pathParameters['tid']!,
-              ),
+              path: 'types',
+              builder: (_, _) => const VehicleTypesScreen(),
+              routes: [
+                // NOTE: 'new' MUST come before ':tid'
+                GoRoute(
+                  path: 'new',
+                  builder: (_, _) => const VehicleTypeFormScreen(),
+                ),
+                GoRoute(
+                  path: ':tid',
+                  builder: (_, state) => VehicleTypeFormScreen(
+                    typeId: state.pathParameters['tid']!,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

@@ -178,7 +178,7 @@ class _VehicleDetailView extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _TopBarIconButton(
-                  onTap: () => context.push('/vehicles/${vehicle.id}/edit'),
+                  onTap: () => context.go('/vehicles/${vehicle.id}/edit'),
                   icon: Icons.edit_outlined,
                   color: AppColors.accent,
                 ),
@@ -293,7 +293,7 @@ class _VehicleDetailView extends ConsumerWidget {
                     label: 'Nuova manutenzione',
                     icon: const Icon(Icons.add, color: Colors.white, size: 20),
                     onPressed: () =>
-                        context.push('/vehicles/${vehicle.id}/maintenance/new'),
+                        context.go('/vehicles/${vehicle.id}/maintenance/new'),
                   ),
 
                   const SizedBox(height: 12),
@@ -425,7 +425,7 @@ class _MaintenanceSection extends ConsumerWidget {
                     child: _MaintenanceCard(
                       record: r,
                       fields: fields,
-                      onTap: () => context.push(
+                      onTap: () => context.go(
                           '/vehicles/${vehicle.id}/maintenance/${r.id}'),
                     ),
                   ))

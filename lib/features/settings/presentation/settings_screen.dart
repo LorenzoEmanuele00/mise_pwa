@@ -68,7 +68,7 @@ class SettingsScreen extends ConsumerWidget {
                         icon: Icons.tune_rounded,
                         label: 'Campi manutenzione',
                         subtitle: 'Aggiungi, modifica o disattiva i campi di stato',
-                        onTap: () => context.push(AppRoutes.settingsFields),
+                        onTap: () => context.go(AppRoutes.settingsFields),
                       ),
                       const Divider(
                           height: 1, indent: 60, color: AppColors.hair),
@@ -77,7 +77,7 @@ class SettingsScreen extends ConsumerWidget {
                         label: 'Tipi di mezzo',
                         subtitle: 'Gestisci le tipologie di veicolo',
                         isLast: true,
-                        onTap: () => context.push(AppRoutes.settingsTypes),
+                        onTap: () => context.go(AppRoutes.settingsTypes),
                       ),
                     ],
                   ),

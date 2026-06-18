@@ -61,12 +61,12 @@ class _VehicleListScreenState extends ConsumerState<VehicleListScreen> {
                 GmCircleButton(
                   icon: const Icon(Icons.settings_outlined,
                       size: 19, color: AppColors.text2),
-                  onTap: () => context.push(AppRoutes.settings),
+                  onTap: () => context.go(AppRoutes.settings),
                 ),
                 const SizedBox(width: 8),
                 GmCircleButton(
                   icon: const Icon(Icons.add, size: 22, color: Colors.white),
-                  onTap: () => context.push(AppRoutes.vehicleNew),
+                  onTap: () => context.go(AppRoutes.vehicleNew),
                   background: AppColors.accent,
                   border: AppColors.accent,
                 ),
@@ -113,7 +113,7 @@ class _VehicleListScreenState extends ConsumerState<VehicleListScreen> {
               ),
               data: (all) {
                 if (all.isEmpty) {
-                  return _EmptyState(onAdd: () => context.push(AppRoutes.vehicleNew));
+                  return _EmptyState(onAdd: () => context.go(AppRoutes.vehicleNew));
                 }
                 final list = _filtered(all);
                 return _buildScrollable(
@@ -141,7 +141,7 @@ class _VehicleListScreenState extends ConsumerState<VehicleListScreen> {
                                     padding: const EdgeInsets.only(bottom: 10),
                                     child: _VehicleCard(
                                       vehicle: v,
-                                      onTap: () => context.push('/vehicles/${v.id}'),
+                                      onTap: () => context.go('/vehicles/${v.id}'),
                                     ),
                                   ))
                               .toList(),
