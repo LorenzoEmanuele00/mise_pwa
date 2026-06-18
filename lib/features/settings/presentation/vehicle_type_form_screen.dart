@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../app/router.dart';
 import '../../../app/theme/app_theme.dart';
+import '../../../features/maintenance/data/maintenance_providers.dart';
 import '../../../features/vehicles/data/vehicle_providers.dart';
 import '../../../features/vehicles/domain/vehicle.dart';
 import '../../../shared/widgets/gm_widgets.dart';
@@ -164,6 +165,10 @@ class _VehicleTypeFormScreenState
           .read(vehicleRepositoryProvider)
           .deleteVehicleType(widget.typeId!);
       ref.invalidate(vehicleTypesProvider);
+      // M3: ON DELETE CASCADE sul DB elimina i campi scoped a questo tipo;
+      // invalidiamo le cache Riverpod per rispecchiarlo subito nella UI Settings.
+      ref.invalidate(maintenanceFieldsProvider);
+      ref.invalidate(allMaintenanceFieldsProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Tipo eliminato')),
