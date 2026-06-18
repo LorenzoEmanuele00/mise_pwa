@@ -49,6 +49,32 @@ class _MaintenanceFormScreenState
 
   bool _loading = false;
   bool _initialized = false;
+  String? _initError; // M2: set se il caricamento fallisce in initState
+
+  @override
+  void initState() {
+    super.initState();
+    // M2: init asincrono in initState — stesso pattern dei form Settings (Round 1).
+    // _maybeInit chiama setState; farlo qui (in un microtask post-frame) è corretto.
+    if (widget.isEdit) {
+      Future.microtask(() async {
+        if (!mounted) return;
+        try {
+          final vehicle =
+              await ref.read(vehicleProvider(widget.vehicleId).future);
+          final allFields =
+              await ref.read(maintenanceFieldsProvider.future);
+          final record =
+              await ref.read(maintenanceRecordProvider(widget.recordId!).future);
+          if (!mounted) return;
+          _maybeInit(record, fieldsForType(allFields, vehicle.typeId));
+        } catch (e) {
+          if (!mounted) return;
+          setState(() => _initError = 'Errore caricamento: $e');
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -160,6 +186,24 @@ class _MaintenanceFormScreenState
     final allFields = ref.read(maintenanceFieldsProvider).value ?? [];
     final vehicle = ref.read(vehicleProvider(widget.vehicleId)).value;
     final fields = fieldsForType(allFields, vehicle?.typeId);
+
+    // M1: blocca il salvataggio se "Altro…" è selezionato ma lasciato vuoto;
+    // senza questo controllo il valore viene scartato silenziosamente.
+    for (final f in fields) {
+      if (f.fieldType == MaintenanceFieldType.dropdown &&
+          _selected[f.fieldKey] == _kOther &&
+          _ctrl(f.fieldKey).text.trim().isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Specifica il valore per «${f.label}»'),
+            backgroundColor: AppColors.badFg,
+          ));
+          setState(() => _loading = false);
+        }
+        return;
+      }
+    }
+
     final input = _buildInput(fields);
     final repo = ref.read(maintenanceRepositoryProvider);
 
@@ -261,18 +305,14 @@ class _MaintenanceFormScreenState
     final allFields = fieldsAsync.value!;
     final fields = fieldsForType(allFields, vehicle.typeId);
 
-    // Edit mode: also wait for the existing record
+    // M2: init delegato a initState — in build si controlla solo lo stato
+    // (_initialized / _initError) senza chiamare setState direttamente.
     if (widget.isEdit) {
-      final recordAsync =
-          ref.watch(maintenanceRecordProvider(widget.recordId!));
-      if (recordAsync.isLoading) return _buildLoadingScaffold();
-      if (recordAsync.hasError) {
-        return _buildErrorScaffold(recordAsync.error.toString());
-      }
-      final record = recordAsync.value!;
-      // Initialize form state from record (runs once, then _initialized = true)
-      _maybeInit(record, fields);
+      if (_initError != null) return _buildErrorScaffold(_initError!);
       if (!_initialized) return _buildLoadingScaffold();
+      // Continua a osservare il record per invalidazioni esterne (es. eliminazione
+      // concorrente da un'altra tab), ma non richiama _maybeInit (guard _initialized).
+      ref.watch(maintenanceRecordProvider(widget.recordId!));
     }
 
     return Scaffold(
@@ -411,15 +451,17 @@ class _MaintenanceFormScreenState
         if (widget.isEdit) ...[
           const SizedBox(height: 28),
           Center(
-            child: TextButton.icon(
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.badFg,
-                textStyle: GoogleFonts.ibmPlexSans(
-                    fontWeight: FontWeight.w600, fontSize: 15),
+            child: GmTappable(
+              onTap: _confirmDelete,
+              child: Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.badFg, width: 1.5),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.delete_outline_rounded,
+                    color: AppColors.badFg, size: 20),
               ),
-              icon: const Icon(Icons.delete_outline_rounded, size: 20),
-              label: const Text('Elimina scheda'),
-              onPressed: _confirmDelete,
             ),
           ),
         ],

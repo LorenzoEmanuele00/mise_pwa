@@ -13,6 +13,17 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.44.2   # B5: pin versione per build riproducibili
+          cache: true                # B5: cache pub/engine → build più veloci
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Analyze              # B5: gate — blocca il deploy su errori statici
+        run: flutter analyze
+
+      - name: Test                 # B5: gate — blocca il deploy su test falliti
+        run: flutter test
 
       - name: Build web
         env:

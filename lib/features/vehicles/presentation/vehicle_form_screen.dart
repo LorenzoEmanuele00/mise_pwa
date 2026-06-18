@@ -29,6 +29,28 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
   String? _selectedTypeId;
   bool _loading = false;
   bool _initialized = false;
+  String? _initError; // M2: set se il caricamento del veicolo fallisce in initState
+
+  @override
+  void initState() {
+    super.initState();
+    // M2: init asincrono in initState — stesso pattern dei form Settings (Round 1).
+    // _initFromVehicle chiama setState; farlo qui (in un microtask post-frame) è corretto.
+    if (widget.isEdit) {
+      Future.microtask(() async {
+        if (!mounted) return;
+        try {
+          final vehicle =
+              await ref.read(vehicleProvider(widget.vehicleId!).future);
+          if (!mounted) return;
+          _initFromVehicle(vehicle);
+        } catch (e) {
+          if (!mounted) return;
+          setState(() => _initError = 'Errore caricamento: $e');
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -93,29 +115,69 @@ class _VehicleFormScreenState extends ConsumerState<VehicleFormScreen> {
   Widget build(BuildContext context) {
     final typesAsync = ref.watch(vehicleTypesProvider);
 
+    // M2: init delegato a initState — in build si controlla solo lo stato
+    // (_initialized / _initError) senza chiamare setState direttamente.
     if (widget.isEdit) {
-      final vehicleAsync = ref.watch(vehicleProvider(widget.vehicleId!));
-      if (vehicleAsync.isLoading) {
+      if (_initError != null) {
         return Scaffold(
           backgroundColor: AppColors.bg,
           body: Column(
             children: [
               GmTopBar(
-                  title: 'Modifica mezzo', onBack: () {
-                  if (context.canPop()) {
-                    context.pop();
-                  } else {
-                    context.go('/');
-                  }
-                }),
-              const Expanded(
-                  child: Center(
-                      child: CircularProgressIndicator(color: AppColors.accent))),
+                title: 'Modifica mezzo',
+                onBack: () =>
+                    context.canPop() ? context.pop() : context.go('/'),
+              ),
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error_outline_rounded,
+                            size: 48, color: AppColors.text3),
+                        const SizedBox(height: 16),
+                        Text(
+                          _initError!,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.ibmPlexSans(
+                              color: AppColors.text2),
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: () => context.canPop()
+                              ? context.pop()
+                              : context.go('/'),
+                          child: const Text('Torna indietro'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         );
       }
-      vehicleAsync.whenData(_initFromVehicle);
+      if (!_initialized) {
+        return Scaffold(
+          backgroundColor: AppColors.bg,
+          body: Column(
+            children: [
+              GmTopBar(
+                title: 'Modifica mezzo',
+                onBack: () =>
+                    context.canPop() ? context.pop() : context.go('/'),
+              ),
+              const Expanded(
+                child: Center(
+                    child: CircularProgressIndicator(color: AppColors.accent)),
+              ),
+            ],
+          ),
+        );
+      }
     }
 
     return Scaffold(

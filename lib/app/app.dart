@@ -13,7 +13,9 @@ class App extends ConsumerWidget {
       title: 'Gestione Mezzi',
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.system,
+      // C4: dark() è ancora uno stub (Phase 6). Forziamo light finché
+      // il tema scuro non è completo, per evitare UI rotta su OS in dark mode.
+      themeMode: ThemeMode.light,
       routerConfig: appRouter,
       debugShowCheckedModeBanner: false,
     );

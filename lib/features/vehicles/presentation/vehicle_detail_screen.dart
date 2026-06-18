@@ -1,12 +1,18 @@
+import 'dart:convert';
+import 'dart:js_interop';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:web/web.dart' as web;
 
 import '../../../app/theme/app_theme.dart';
 import '../../../features/maintenance/data/maintenance_providers.dart';
 import '../../../features/maintenance/domain/maintenance_field.dart';
 import '../../../features/maintenance/domain/maintenance_record.dart';
+import '../../../shared/utils/csv_export.dart';
 import '../../../shared/widgets/gm_widgets.dart';
 import '../data/vehicle_providers.dart';
 import '../domain/vehicle.dart';
@@ -113,6 +119,45 @@ class _VehicleDetailView extends ConsumerWidget {
     }
   }
 
+  Future<void> _exportCsv(BuildContext context, WidgetRef ref) async {
+    try {
+      final records =
+          await ref.read(maintenanceRecordsProvider(vehicle.id).future);
+      if (records.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Nessuna manutenzione da esportare')),
+          );
+        }
+        return;
+      }
+      final allFields = await ref.read(allMaintenanceFieldsProvider.future);
+      final fields = fieldsForType(allFields, vehicle.typeId);
+      final csv = buildMaintenanceCsv(
+        vehicle: vehicle,
+        records: records,
+        fields: fields,
+      );
+      final filename = csvFilename(vehicle);
+      _triggerCsvDownload(filename, csv);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('CSV scaricato: $filename')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Errore durante l'esportazione: $e"),
+            backgroundColor: AppColors.badFg,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
@@ -132,27 +177,22 @@ class _VehicleDetailView extends ConsumerWidget {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                GmTappable(
+                _TopBarIconButton(
                   onTap: () => context.push('/vehicles/${vehicle.id}/edit'),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    child: Text(
-                      'Modifica',
-                      style: GoogleFonts.ibmPlexSans(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.accent,
-                      ),
-                    ),
-                  ),
+                  icon: Icons.edit_outlined,
+                  color: AppColors.accent,
                 ),
-                GmTappable(
+                const SizedBox(width: 8),
+                _TopBarIconButton(
+                  onTap: () => _exportCsv(context, ref),
+                  icon: Icons.download_outlined,
+                  color: AppColors.accent,
+                ),
+                const SizedBox(width: 8),
+                _TopBarIconButton(
                   onTap: () => _confirmDelete(context, ref),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    child: Icon(Icons.delete_outline_rounded,
-                        color: AppColors.badFg, size: 22),
-                  ),
+                  icon: Icons.delete_outline_rounded,
+                  color: AppColors.badFg,
                 ),
               ],
             ),
@@ -286,6 +326,33 @@ class _RetryButton extends StatelessWidget {
         child: Text('Riprova',
             style: GoogleFonts.ibmPlexSans(
                 color: AppColors.accent, fontWeight: FontWeight.w600)),
+      ),
+    );
+  }
+}
+
+class _TopBarIconButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final IconData icon;
+  final Color color;
+
+  const _TopBarIconButton({
+    required this.onTap,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GmTappable(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.border, width: 1.5),
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Icon(icon, color: color, size: 18),
       ),
     );
   }
@@ -546,4 +613,22 @@ class _MaintenanceCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Download CSV via Web API ──────────────────────────────────
+/// Avvia il download del file CSV nel browser.
+void _triggerCsvDownload(String filename, String content) {
+  final encoded = Uint8List.fromList(utf8.encode(content));
+  final blob = web.Blob(
+    <JSAny>[encoded.toJS].toJS,
+    web.BlobPropertyBag(type: 'text/csv;charset=utf-8'),
+  );
+  final url = web.URL.createObjectURL(blob);
+  final anchor = web.document.createElement('a') as web.HTMLAnchorElement
+    ..href = url
+    ..download = filename;
+  web.document.body!.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  web.URL.revokeObjectURL(url);
 }

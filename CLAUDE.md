@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Authentication uses a **single shared account** for the entire association; no user management. Security relies on RLS + mandatory login + disabled public sign-up (not on hiding the anon key, which is intentionally public).
 
+> **Nota sicurezza (B6):** La `SUPABASE_ANON_KEY` nei comandi qui sotto è una *publishable key* — è pubblica by design nel modello Supabase e finisce comunque in `main.dart.js`. La vera protezione è: (1) RLS abilitato su tutte le tabelle, (2) **signup disabilitato** nel dashboard Supabase (`Authentication → Settings → Disable sign ups`). Se il signup fosse riabilitato, chiunque potrebbe crearsi un account e accedere a tutti i dati. Verificare questa impostazione periodicamente.
+
 ## Commands
 
 ```bash

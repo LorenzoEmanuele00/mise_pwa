@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../app/router.dart';
 import '../../../app/theme/app_theme.dart';
+import '../../../features/maintenance/data/maintenance_providers.dart';
 import '../../../features/vehicles/data/vehicle_providers.dart';
 import '../../../features/vehicles/domain/vehicle.dart';
 import '../../../shared/widgets/gm_widgets.dart';
@@ -31,6 +32,7 @@ class _VehicleTypeFormScreenState
 
   bool _loading = false;
   bool _initialized = false;
+  String? _initError; // C2: set se il tipo non viene trovato nel caricamento
   bool _isCustomType = true;
   String? _existingCode;
 
@@ -43,8 +45,20 @@ class _VehicleTypeFormScreenState
         try {
           final types = await ref.read(vehicleTypesProvider.future);
           if (!mounted) return;
-          _initFromType(types.firstWhere((t) => t.id == widget.typeId!));
-        } catch (_) {}
+          // C2: firstWhere senza orElse lancia StateError su id obsoleto;
+          // usiamo firstOrNull e mostriamo un errore invece di uno spinner
+          // infinito ingoiato dal catch.
+          final match =
+              types.where((t) => t.id == widget.typeId!).firstOrNull;
+          if (match == null) {
+            setState(() => _initError = 'Tipo non trovato (id obsoleto?)');
+            return;
+          }
+          _initFromType(match);
+        } catch (e) {
+          if (!mounted) return;
+          setState(() => _initError = 'Errore di caricamento: $e');
+        }
       });
     }
   }
@@ -151,6 +165,10 @@ class _VehicleTypeFormScreenState
           .read(vehicleRepositoryProvider)
           .deleteVehicleType(widget.typeId!);
       ref.invalidate(vehicleTypesProvider);
+      // M3: ON DELETE CASCADE sul DB elimina i campi scoped a questo tipo;
+      // invalidiamo le cache Riverpod per rispecchiarlo subito nella UI Settings.
+      ref.invalidate(maintenanceFieldsProvider);
+      ref.invalidate(allMaintenanceFieldsProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Tipo eliminato')),
@@ -185,13 +203,55 @@ class _VehicleTypeFormScreenState
     }
   }
 
+  // M6: usa PostgrestException tipizzata invece di string matching su e.toString()
   String _friendlyError(Object e) {
-    final msg = e.toString();
-    if (msg.contains('23505') || msg.contains('unique')) {
-      return 'Codice già esistente — scegli un nome diverso';
+    if (e is PostgrestException) {
+      if (e.code == '23505') return 'Codice già esistente — scegli un nome diverso';
+      return 'Errore database: ${e.message}';
     }
     return 'Errore: $e';
   }
+
+  Scaffold _buildErrorScaffold(String message) => Scaffold(
+        backgroundColor: AppColors.bg,
+        body: Column(
+          children: [
+            GmTopBar(
+              title: 'Modifica tipo',
+              onBack: () => context.canPop()
+                  ? context.pop()
+                  : context.go(AppRoutes.settingsTypes),
+            ),
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error_outline_rounded,
+                          size: 48, color: AppColors.text3),
+                      const SizedBox(height: 16),
+                      Text(
+                        message,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.ibmPlexSans(color: AppColors.text2),
+                      ),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: () => context.canPop()
+                            ? context.pop()
+                            : context.go(AppRoutes.settingsTypes),
+                        child: const Text('Torna indietro'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 
   // Mostra loading finché il tipo non è inizializzato (solo in edit)
   Scaffold _buildLoadingScaffold() => Scaffold(
@@ -215,6 +275,8 @@ class _VehicleTypeFormScreenState
   @override
   Widget build(BuildContext context) {
     if (widget.isEdit && !_initialized) {
+      // C2: mostra errore esplicito invece di spinner infinito se l'id non esiste
+      if (_initError != null) return _buildErrorScaffold(_initError!);
       return _buildLoadingScaffold();
     }
 
