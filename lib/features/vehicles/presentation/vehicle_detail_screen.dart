@@ -418,20 +418,109 @@ class _MaintenanceSection extends ConsumerWidget {
             ),
           );
         }
+        final latest = records.first;
+        final older = records.length > 1 ? records.sublist(1) : <MaintenanceRecord>[];
         return Column(
-          children: records
-              .map((r) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _MaintenanceCard(
-                      record: r,
-                      fields: fields,
-                      onTap: () => context.go(
-                          '/vehicles/${vehicle.id}/maintenance/${r.id}'),
-                    ),
-                  ))
-              .toList(),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _MaintenanceCard(
+                record: latest,
+                fields: fields,
+                onTap: () => context.go(
+                    '/vehicles/${vehicle.id}/maintenance/${latest.id}'),
+              ),
+            ),
+            if (older.isNotEmpty)
+              _OlderRecordsExpander(
+                vehicle: vehicle,
+                records: older,
+                fields: fields,
+              ),
+          ],
         );
       },
+    );
+  }
+}
+
+class _OlderRecordsExpander extends StatefulWidget {
+  final Vehicle vehicle;
+  final List<MaintenanceRecord> records;
+  final List<MaintenanceField> fields;
+
+  const _OlderRecordsExpander({
+    required this.vehicle,
+    required this.records,
+    required this.fields,
+  });
+
+  @override
+  State<_OlderRecordsExpander> createState() => _OlderRecordsExpanderState();
+}
+
+class _OlderRecordsExpanderState extends State<_OlderRecordsExpander> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GmTappable(
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border.all(color: AppColors.border, width: 1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  'Interventi precedenti (${widget.records.length})',
+                  style: GoogleFonts.ibmPlexSans(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.text2,
+                  ),
+                ),
+                const Spacer(),
+                AnimatedRotation(
+                  turns: _expanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: const Icon(Icons.keyboard_arrow_down_rounded,
+                      size: 20, color: AppColors.text3),
+                ),
+              ],
+            ),
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          child: _expanded
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Column(
+                    children: widget.records
+                        .map((r) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _MaintenanceCard(
+                                record: r,
+                                fields: widget.fields,
+                                onTap: () => context.go(
+                                    '/vehicles/${widget.vehicle.id}/maintenance/${r.id}'),
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
     );
   }
 }
