@@ -451,15 +451,17 @@ class _MaintenanceFormScreenState
         if (widget.isEdit) ...[
           const SizedBox(height: 28),
           Center(
-            child: TextButton.icon(
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.badFg,
-                textStyle: GoogleFonts.ibmPlexSans(
-                    fontWeight: FontWeight.w600, fontSize: 15),
+            child: GmTappable(
+              onTap: _confirmDelete,
+              child: Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.badFg, width: 1.5),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.delete_outline_rounded,
+                    color: AppColors.badFg, size: 20),
               ),
-              icon: const Icon(Icons.delete_outline_rounded, size: 20),
-              label: const Text('Elimina scheda'),
-              onPressed: _confirmDelete,
             ),
           ),
         ],
