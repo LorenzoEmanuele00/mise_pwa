@@ -43,6 +43,21 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <script>
+    // Prevent iOS Safari (and Android Chrome) from accumulating browser
+    // history entries for in-app navigation. Without this patch, GoRouter
+    // calls history.pushState() on every route change, so iOS swipe-back
+    // triggers both Safari's native slide animation AND Flutter's own
+    // transition — a visible "double snap". By converting every pushState
+    // to replaceState the browser never has a previous entry to go back to,
+    // so back navigation is handled exclusively by Flutter's in-app buttons.
+    (function () {
+      var _push = history.pushState.bind(history);
+      history.pushState = function (state, title, url) {
+        history.replaceState(state, title, url);
+      };
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
